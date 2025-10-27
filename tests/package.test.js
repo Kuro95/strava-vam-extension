@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execSync } = require('child_process');
 
 // Get the project root directory
@@ -12,6 +13,7 @@ const distDir = path.join(projectRoot, 'dist');
 
 describe('Package Structure Tests', () => {
   let zipFile;
+  let zipListOutput;
 
   beforeAll(() => {
     // Ensure dist directory exists and is built
@@ -28,6 +30,13 @@ describe('Package Structure Tests', () => {
     }
 
     zipFile = path.join(distDir, zipFiles[0]);
+
+    // Cache the ZIP listing output for all tests
+    try {
+      zipListOutput = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
+    } catch (error) {
+      throw new Error(`Failed to list ZIP contents: ${error.message}`);
+    }
   });
 
   test('manifest.json exists in dist', () => {
@@ -57,24 +66,18 @@ describe('Package Structure Tests', () => {
   });
 
   test('ZIP file contains manifest.json at root', () => {
-    const output = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
-    
     // Check for manifest.json at root (not in a subdirectory)
     const manifestPattern = /^\s+\d+\s+[\d-]+\s+[\d:]+\s+manifest\.json\s*$/m;
-    expect(manifestPattern.test(output)).toBe(true);
+    expect(manifestPattern.test(zipListOutput)).toBe(true);
   });
 
   test('ZIP file does not contain manifest.json in subdirectory', () => {
-    const output = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
-    
     // Check that there's no manifest.json with a path separator before it
     const subdirManifestPattern = /\S+\/manifest\.json/;
-    expect(subdirManifestPattern.test(output)).toBe(false);
+    expect(subdirManifestPattern.test(zipListOutput)).toBe(false);
   });
 
   test('ZIP file contains required extension files', () => {
-    const output = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
-    
     const requiredFiles = [
       'background.js',
       'content.js',
@@ -86,19 +89,15 @@ describe('Package Structure Tests', () => {
     ];
 
     requiredFiles.forEach(file => {
-      expect(output).toContain(file);
+      expect(zipListOutput).toContain(file);
     });
   });
 
   test('ZIP file contains icons directory', () => {
-    const output = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
-    
-    expect(output).toContain('icons/');
+    expect(zipListOutput).toContain('icons/');
   });
 
   test('ZIP file contains required icon files', () => {
-    const output = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
-    
     const requiredIcons = [
       'icon16.png',
       'icon48.png',
@@ -106,13 +105,11 @@ describe('Package Structure Tests', () => {
     ];
 
     requiredIcons.forEach(icon => {
-      expect(output).toContain(icon);
+      expect(zipListOutput).toContain(icon);
     });
   });
 
   test('ZIP file does not contain unnecessary files', () => {
-    const output = execSync(`unzip -l "${zipFile}"`, { encoding: 'utf8' });
-    
     // These files should not be in the package
     const unnecessaryFiles = [
       '.git',
@@ -125,12 +122,12 @@ describe('Package Structure Tests', () => {
     ];
 
     unnecessaryFiles.forEach(file => {
-      expect(output).not.toContain(file);
+      expect(zipListOutput).not.toContain(file);
     });
   });
 
   test('extracted manifest matches dist manifest', () => {
-    const tempDir = fs.mkdtempSync(path.join('/tmp', 'test-'));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-'));
     
     try {
       execSync(`unzip -q "${zipFile}" -d "${tempDir}"`);
