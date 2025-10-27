@@ -58,6 +58,57 @@ npm test
 4. Navigate to: `C:\Users\Kuro\Documents\Git\strava-vam-extension-repo\dist\`
 5. Select `manifest.json`
 
+**Verifying the Installation:**
+
+If you get an error about an invalid manifest, verify your build:
+
+```powershell
+# Check that manifest.json exists in dist
+Test-Path dist\manifest.json
+
+# View the manifest content
+Get-Content dist\manifest.json | ConvertFrom-Json | ConvertTo-Json
+
+# Validate with web-ext
+npm run validate
+```
+
+The `dist` folder should have this structure:
+```
+dist/
+├── manifest.json       (at root, not in subdirectory)
+├── background.js
+├── content.js
+├── popup.html
+├── popup.js
+├── options.html
+├── options.js
+├── styles.css
+├── leaderboard.html
+├── leaderboard.js
+└── icons/
+    ├── icon16.png
+    ├── icon48.png
+    └── icon128.png
+```
+
+### Testing the Release ZIP
+
+After creating a release package, test it like a user would:
+
+```powershell
+# Create the package
+npm run package
+
+# Extract it to a test folder
+Expand-Archive -Path "dist\strava-vam-extension-v1.0.4.zip" -DestinationPath "test-install"
+
+# Verify manifest is at root
+Test-Path test-install\manifest.json
+
+# Load this folder in Firefox as a temporary add-on
+```
+
 ### Step 5: Create First Release
 
 ```powershell
@@ -74,10 +125,18 @@ git push origin v1.0.0
 
 ## GitHub Actions will automatically:
 - ✅ Run tests
+- ✅ Run linter
 - ✅ Build extension
+- ✅ Package extension (creates ZIP)
+- ✅ Validate package structure
+- ✅ Validate with web-ext lint
 - ✅ Sign with Firefox
-- ✅ Create GitHub release
+- ✅ Create GitHub release with ZIP and XPI files
 - ✅ Publish to Firefox Add-ons (after manual first submission)
+
+The release will include:
+- `strava-vam-extension-vX.Y.Z.zip` - For temporary installation and testing
+- `strava_vam_extension-X.Y.Z.xpi` - Signed version for distribution
 
 ## Notes for Windows Users
 

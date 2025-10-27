@@ -55,11 +55,36 @@ Track your best VAM over fixed distances:
 6. Select the `manifest.json` file from the `dist/` directory
 
 ### From Release ZIP (Testing without Build)
+
+**This is the easiest way to test the extension locally without setting up a development environment.**
+
 1. Download the latest `strava-vam-extension-vX.Y.Z.zip` from the [Releases page](https://github.com/Kuro95/strava-vam-extension/releases)
-2. Extract the ZIP file to a folder
+2. Extract the ZIP file to a folder on your computer
+   - **Important:** Extract to a location where you plan to keep the files (not Downloads or Temp)
+   - The extension will remain installed only while Firefox is running
 3. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
-4. Click "Load Temporary Add-on"
-5. Select the `manifest.json` file from the extracted folder
+4. Click **"Load Temporary Add-on"**
+5. Navigate to the extracted folder and select the `manifest.json` file
+6. The extension is now loaded and ready to use!
+
+**Note:** Temporary add-ons are removed when Firefox closes. You'll need to reload them each time you restart Firefox. For permanent installation, use the Firefox Add-ons page method above.
+
+#### Verifying the Installation Package
+
+To verify the ZIP file is valid before installation:
+
+```bash
+# Extract the ZIP
+unzip strava-vam-extension-vX.Y.Z.zip -d extension-test
+
+# Check that manifest.json is at the root
+ls extension-test/manifest.json
+
+# Validate with web-ext (requires Node.js)
+npx web-ext lint --source-dir=extension-test
+```
+
+A valid extension package should have `manifest.json` at the root level (not in a subdirectory).
 
 ## 📖 How to Use
 
@@ -166,6 +191,40 @@ npm run lint:fix
 ## 🤝 Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## 🔧 Troubleshooting
+
+### Firefox: "File does not contain a valid manifest"
+
+If you get this error when loading the extension:
+
+1. **Extract the ZIP file first** - Firefox cannot load extensions directly from ZIP files for temporary installations
+2. **Check the extracted folder structure** - The `manifest.json` file must be at the root of the folder, not in a subdirectory
+3. **Verify the manifest is valid JSON** - Open `manifest.json` in a text editor and check for syntax errors
+4. **Use the correct location** - When clicking "Load Temporary Add-on", navigate to the extracted folder and select `manifest.json`
+
+### Extension Not Appearing on Strava
+
+1. Make sure you're on a Strava activity page: `https://www.strava.com/activities/*`
+2. Refresh the page after installing the extension
+3. Check that the extension has the necessary permissions granted
+4. Open the browser console (F12) and check for any error messages
+
+### Data Not Syncing
+
+1. Visit at least one activity page to initialize the extension
+2. Use the "🔄 Sync All Activities" button from an activity page
+3. Check the extension popup to verify data is being stored
+
+### Performance Issues
+
+If you experience slowdowns:
+
+1. Reduce the number of custom tracking periods in settings
+2. Clear the extension data from the popup and re-sync
+3. Sync activities in smaller batches
+
+For more help, please [open an issue](https://github.com/Kuro95/strava-vam-extension/issues) on GitHub.
 
 ## 📝 Changelog
 
