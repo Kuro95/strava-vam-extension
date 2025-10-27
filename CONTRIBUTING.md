@@ -49,6 +49,8 @@ Thank you for your interest in contributing! 🎉
    npm run lint
    npm test
    npm run build
+   npm run package
+   npm run validate:package  # Ensure package structure is valid
    ```
 
 5. **Commit your changes**

@@ -8,11 +8,13 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:package": "jest tests/package.test.js --testPathIgnorePatterns=[]",
     "build": "node scripts/build.js",
     "build:bash": "bash scripts/build.sh",
     "package": "node scripts/package.js",
     "package:bash": "bash scripts/package.sh",
     "validate": "web-ext lint --source-dir=dist",
+    "validate:package": "node scripts/validate-package.js",
     "dev": "web-ext run --source-dir=dist --firefox-preview",
     "sign": "web-ext sign --source-dir=dist --artifacts-dir=artifacts"
   },

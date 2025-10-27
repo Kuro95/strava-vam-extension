@@ -54,6 +54,13 @@ Track your best VAM over fixed distances:
 5. Click "Load Temporary Add-on"
 6. Select the `manifest.json` file from the `dist/` directory
 
+### From Release ZIP (Testing without Build)
+1. Download the latest `strava-vam-extension-vX.Y.Z.zip` from the [Releases page](https://github.com/Kuro95/strava-vam-extension/releases)
+2. Extract the ZIP file to a folder
+3. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
+4. Click "Load Temporary Add-on"
+5. Select the `manifest.json` file from the extracted folder
+
 ## 📖 How to Use
 
 1. **Visit a Strava Activity**
@@ -114,6 +121,9 @@ npm run lint
 
 # Package for distribution
 npm run package
+
+# Validate package structure
+npm run validate:package
 ```
 
 ### Project Structure

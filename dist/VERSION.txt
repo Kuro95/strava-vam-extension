@@ -1,4 +1,0 @@
-Strava VAM Extension
-Version: 1.0.0
-Build Date: 2025-10-27T20:39:29.061Z
-Commit: 36fd947
