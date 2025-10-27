@@ -51,6 +51,9 @@ jobs:
     - name: Validate package structure
       run: npm run validate:package
     
+    - name: Validate with web-ext lint
+      run: npm run validate
+    
     - name: Sign and publish to Firefox Add-ons
       env:
         WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
