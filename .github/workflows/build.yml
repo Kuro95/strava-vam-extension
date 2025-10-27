@@ -45,6 +45,9 @@ jobs:
     - name: Package extension
       run: npm run package
     
+    - name: Validate package structure
+      run: npm run validate:package
+    
     - name: Sign and publish to Firefox Add-ons
       env:
         WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
