@@ -45,6 +45,9 @@ jobs:
     - name: Package extension
       run: npm run package
     
+    - name: Run package structure tests
+      run: npm run test:package
+    
     - name: Validate package structure
       run: npm run validate:package
     

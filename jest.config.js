@@ -5,6 +5,10 @@ module.exports = {
     '**/__tests__/**/*.js',
     '**/?(*.)+(spec|test).js'
   ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/package.test.js'  // Skip package tests in default run (require build first)
+  ],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/**/*.test.js',
