@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAM Personal Bests</title>
+    <style>
+        body {
+            width: 500px;
+            min-height: 400px;
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f7f7f7;
+        }
+
+        h2 {
+            margin: 0 0 16px 0;
+            color: #242428;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #606060;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: #fc4c02;
+        }
+
+        .tab.active {
+            color: #fc4c02;
+            border-bottom-color: #fc4c02;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 8px;
+            background: #f0f0f0;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #606060;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #242428;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .vam-value {
+            font-weight: 600;
+            color: #fc4c02;
+            font-size: 15px;
+        }
+
+        .date {
+            font-size: 11px;
+            color: #606060;
+        }
+
+        .activity-link {
+            color: #fc4c02;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .activity-link:hover {
+            text-decoration: underline;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #606060;
+        }
+
+        .no-data-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #fc4c02;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #e64402;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #242428;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .sync-status {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .sync-status.syncing {
+            background: #fff3e0;
+            color: #fc4c02;
+            display: block;
+        }
+
+        .sync-status.complete {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .sync-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #fc4c02;
+            transition: width 0.3s;
+        }
+
+        .footer {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 11px;
+            color: #606060;
+        }
+
+        .footer a {
+            color: #fc4c02;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h2>🏔️ VAM Personal Bests</h2>
+    
+    <div class="container">
+        <div class="button-group">
+            <button id="syncBtn" class="btn btn-primary">🔄 Sync All Activities</button>
+        </div>
+        
+        <div class="button-group">
+            <a href="leaderboard.html" target="_blank" class="btn btn-secondary" style="font-size: 14px; font-weight: 700; text-decoration: none; display: block; text-align: center;">🏆 View Leaderboard</a>
+            <button id="clearBtn" class="btn btn-secondary">Clear Data</button>
+        </div>
+
+        <div id="syncStatus" class="sync-status">
+            <div id="syncMessage">Syncing activities...</div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="tabs" id="modeTabs" style="display: none;">
+            <!-- Tabs will be added dynamically -->
+        </div>
+
+        <div id="content">
+            <div class="no-data">
+                <div class="no-data-icon">📊</div>
+                <p>Loading your personal bests...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <a href="javascript:void(0)" id="settingsLink">⚙️ Settings</a> • 
+        <a href="leaderboard.html" target="_blank">🏆 Leaderboard</a> • 
+        Visit Strava activities to track VAM personal bests
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

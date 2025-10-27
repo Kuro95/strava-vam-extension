@@ -1,0 +1,5 @@
+<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="16" fill="#fc4c02"/>
+  <path d="M30 90 L50 40 L64 70 L80 20 L100 90" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="115" font-size="18" text-anchor="middle" fill="white" font-weight="bold">VAM PB</text>
+</svg>

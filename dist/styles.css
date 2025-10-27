@@ -1,0 +1,262 @@
+/* VAM Personal Bests Tracker - Styles */
+
+.vam-pb-widget {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 20px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.vam-pb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #fc4c02;
+}
+
+.vam-pb-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #242428;
+}
+
+.new-pb-badge {
+    background: #fc4c02;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+.vam-pb-content {
+    font-size: 14px;
+}
+
+/* Tabs */
+.vam-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.vam-tab {
+    background: transparent;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #606060;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+
+.vam-tab:hover {
+    color: #fc4c02;
+}
+
+.vam-tab.active {
+    color: #fc4c02;
+    border-bottom-color: #fc4c02;
+}
+
+/* Mode sections */
+.vam-mode-section {
+    margin-bottom: 20px;
+}
+
+.vam-mode-header {
+    margin: 0 0 12px 0;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #fc4c02 0%, #ff6b35 100%);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.vam-mode-table {
+    display: block;
+}
+
+.vam-pb-widget .vam-pb-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    display: table !important;
+    table-layout: auto;
+}
+
+.vam-pb-widget .vam-pb-table thead {
+    display: table-header-group !important;
+}
+
+.vam-pb-widget .vam-pb-table tbody {
+    display: table-row-group !important;
+}
+
+.vam-pb-widget .vam-pb-table tr {
+    display: table-row !important;
+}
+
+.vam-pb-widget .vam-pb-table th,
+.vam-pb-widget .vam-pb-table td {
+    display: table-cell !important;
+}
+
+.vam-pb-table thead tr {
+    background: #f7f7f7;
+}
+
+.vam-pb-table th {
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #606060;
+    font-size: 12px;
+    text-transform: uppercase;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.vam-pb-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #242428;
+}
+
+.vam-pb-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.new-pb-row {
+    background: #fff3e0 !important;
+    font-weight: 600;
+}
+
+.new-pb-row td {
+    color: #fc4c02;
+}
+
+.current-pb {
+    font-weight: 600;
+    color: #fc4c02;
+}
+
+.vam-pb-footer {
+    text-align: center;
+    color: #606060;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vam-sync-btn {
+    background: linear-gradient(135deg, #fc4c02 0%, #ff6b35 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 8px;
+}
+
+.vam-sync-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(252, 76, 2, 0.3);
+}
+
+.vam-sync-btn:active {
+    transform: translateY(0);
+}
+
+.vam-pb-footer small {
+    font-size: 11px;
+}
+
+.vam-pb-footer a {
+    color: #fc4c02;
+    text-decoration: none;
+}
+
+.vam-pb-footer a:hover {
+    text-decoration: underline;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .vam-pb-widget {
+        background: #1c1c1e;
+        border-color: #2c2c2e;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .vam-pb-header h3 {
+        color: #ffffff;
+    }
+
+    .vam-tabs {
+        border-bottom-color: #3c3c3e;
+    }
+
+    .vam-tab {
+        color: #b0b0b0;
+    }
+
+    .vam-tab:hover {
+        color: #fc4c02;
+    }
+
+    .vam-pb-table thead tr {
+        background: #2c2c2e;
+    }
+
+    .vam-pb-table th {
+        color: #b0b0b0;
+        border-bottom-color: #3c3c3e;
+    }
+
+    .vam-pb-table td {
+        color: #ffffff;
+        border-bottom-color: #2c2c2e;
+    }
+
+    .vam-pb-table tbody tr:hover {
+        background: #2c2c2e;
+    }
+
+    .new-pb-row {
+        background: #3d2a1f !important;
+    }
+
+    .vam-pb-footer {
+        color: #b0b0b0;
+        border-top-color: #2c2c2e;
+    }
+}

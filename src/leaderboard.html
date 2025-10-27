@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAM Leaderboard</title>
+    <style>
+        body {
+            width: 700px;
+            min-height: 600px;
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f7f7f7;
+        }
+
+        h2 {
+            margin: 0 0 16px 0;
+            color: #242428;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #606060;
+        }
+
+        select {
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            background: white;
+        }
+
+        select:focus {
+            outline: 2px solid #fc4c02;
+            border-color: #fc4c02;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #606060;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: #fc4c02;
+        }
+
+        .tab.active {
+            color: #fc4c02;
+            border-bottom-color: #fc4c02;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px 10px;
+            background: #f0f0f0;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #606060;
+            border-bottom: 2px solid #e0e0e0;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+
+        th:hover {
+            background: #e8e8e8;
+        }
+
+        th.sortable::after {
+            content: '↕';
+            position: absolute;
+            right: 6px;
+            color: #ccc;
+            font-size: 12px;
+        }
+
+        th.sorted-asc::after {
+            content: '↑';
+            color: #fc4c02;
+        }
+
+        th.sorted-desc::after {
+            content: '↓';
+            color: #fc4c02;
+        }
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #242428;
+            font-size: 13px;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .rank {
+            font-weight: 700;
+            font-size: 16px;
+            color: #606060;
+            text-align: center;
+            width: 50px;
+        }
+
+        .rank.gold {
+            color: #FFD700;
+        }
+
+        .rank.silver {
+            color: #C0C0C0;
+        }
+
+        .rank.bronze {
+            color: #CD7F32;
+        }
+
+        .vam-value {
+            font-weight: 700;
+            color: #fc4c02;
+            font-size: 16px;
+        }
+
+        .date {
+            font-size: 12px;
+            color: #606060;
+        }
+
+        .activity-name {
+            font-weight: 500;
+            color: #242428;
+        }
+
+        .activity-link {
+            color: #fc4c02;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .activity-link:hover {
+            text-decoration: underline;
+        }
+
+        .sport-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .sport-ride {
+            background: #fff3e0;
+            color: #fc4c02;
+        }
+
+        .sport-run {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .sport-other {
+            background: #f0f0f0;
+            color: #606060;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #606060;
+        }
+
+        .no-data-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #fc4c02;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #606060;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #242428;
+        }
+
+        .footer {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 11px;
+            color: #606060;
+        }
+
+        .footer a {
+            color: #fc4c02;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #242428;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+    </style>
+</head>
+<body>
+    <h2>🏆 VAM Leaderboard</h2>
+    
+    <div class="container">
+        <div class="btn-group">
+            <a href="popup.html" class="btn btn-secondary">← Back to Personal Bests</a>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>Sport Type:</label>
+                <select id="sportFilter">
+                    <option value="all">All Activities</option>
+                    <option value="Ride">🚴 Cycling Only</option>
+                    <option value="Run">🏃 Running Only</option>
+                    <option value="VirtualRide">Virtual Rides</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Tracking Mode:</label>
+                <select id="modeFilter">
+                    <option value="time">⏱️ Time-Based</option>
+                    <option value="ascent">⛰️ Ascent-Based</option>
+                    <option value="distance">📏 Distance-Based</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Period:</label>
+                <select id="periodFilter">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+        </div>
+
+        <div id="statsContainer" class="stats-summary">
+            <!-- Statistics cards will be added here -->
+        </div>
+
+        <div id="content">
+            <div class="no-data">
+                <div class="no-data-icon">📊</div>
+                <p>Loading leaderboard data...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <a href="javascript:void(0)" id="settingsLink">⚙️ Settings</a> • 
+        Leaderboard shows your best VAM performances across all activities
+    </div>
+
+    <script src="leaderboard.js"></script>
+</body>
+</html>
