@@ -1,7 +1,7 @@
 /**
  * Unit tests for VAM calculation functions
  */
-
+ 
 describe('VAM Calculation Tests', () => {
   describe('calculateVAM', () => {
     test('should calculate VAM correctly for basic case', () => {
@@ -58,7 +58,7 @@ describe('VAM Calculation Tests', () => {
   describe('Data Validation', () => {
     test('should validate elevation data is present', () => {
       const hasElevationData = (data) => {
-        return data && Array.isArray(data) && data.length > 0;
+        return !!(data && Array.isArray(data) && data.length > 0);
       };
 
       expect(hasElevationData([100, 150, 200])).toBe(true);
@@ -69,7 +69,7 @@ describe('VAM Calculation Tests', () => {
 
     test('should validate time data is present', () => {
       const hasTimeData = (data) => {
-        return data && Array.isArray(data) && data.length > 0;
+        return !!(data && Array.isArray(data) && data.length > 0);
       };
 
       expect(hasTimeData([0, 30, 60])).toBe(true);
