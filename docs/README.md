@@ -16,7 +16,19 @@ Welcome to the Strava VAM Extension documentation!
   - Debugging tips
   - Common issues and solutions
 
-### For CI/CD Setup
+### For Publishing & Releases
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - ⭐ Quick reference for releases (START HERE!)
+  - Manual vs Automatic workflows
+  - Tag formats and when to use them
+  - Common scenarios and troubleshooting
+- **[MANUAL_UPLOAD.md](MANUAL_UPLOAD.md)** - Manual upload to Firefox Add-ons
+  - Step-by-step submission process
+  - First-time submission guide
+  - Validation and troubleshooting
+- **[PACKAGING.md](PACKAGING.md)** - Technical packaging details
+  - Package structure requirements
+  - Build and signing process
+  - Mozilla compliance guidelines
 - **[CI-CD-SETUP.md](CI-CD-SETUP.md)** - GitHub Actions configuration
   - Getting Firefox API credentials
   - Configuring GitHub secrets
@@ -47,33 +59,49 @@ npm test             # Run tests
 npm run lint         # Check code quality
 ```
 
-### Releases
+### Publishing Releases
+
+**First-Time Submission (Manual):**
 ```bash
-git tag v1.0.0       # Create version tag
-git push origin v1.0.0  # Trigger automated release
+git tag v1.0.0-manual      # Create manual release tag
+git push origin v1.0.0-manual  # Trigger manual workflow
+# Download .xpi and upload to Mozilla Add-ons
 ```
+
+**After Approval (Automatic):**
+```bash
+git tag v1.0.1             # Create release tag
+git push origin v1.0.1     # Trigger automatic submission
+```
+
+See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for more details.
 
 ## 📋 Documentation Structure
 
 ```
 docs/
-├── README.md          # This file
-├── DEVELOPMENT.md     # Development guide
-└── CI-CD-SETUP.md     # CI/CD configuration
+├── README.md              # This file - documentation index
+├── QUICK_REFERENCE.md     # Quick reference for releases
+├── MANUAL_UPLOAD.md       # Manual upload guide
+├── PACKAGING.md           # Packaging and signing details
+├── CI-CD-SETUP.md         # CI/CD configuration
+└── DEVELOPMENT.md         # Development guide
 
 Root level:
-├── GETTING_STARTED.md  # Quick setup
-├── README.md           # Main docs
-├── CONTRIBUTING.md     # Contribution guide
-├── CHANGELOG.md        # Version history
-└── LICENSE             # MIT License
+├── GETTING_STARTED.md     # Quick setup
+├── README.md              # Main docs
+├── CONTRIBUTING.md        # Contribution guide
+├── CHANGELOG.md           # Version history
+└── LICENSE                # MIT License
 ```
 
 ## 🔍 Finding What You Need
 
 - **New to the project?** → Start with [GETTING_STARTED.md](../GETTING_STARTED.md)
 - **Want to develop?** → Read [DEVELOPMENT.md](DEVELOPMENT.md)
-- **Setting up CI/CD?** → Follow [CI-CD-SETUP.md](CI-CD-SETUP.md)
+- **Publishing first release?** → See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) and [MANUAL_UPLOAD.md](MANUAL_UPLOAD.md)
+- **Setting up automated releases?** → Follow [CI-CD-SETUP.md](CI-CD-SETUP.md)
+- **Technical packaging details?** → Check [PACKAGING.md](PACKAGING.md)
 - **Want to contribute?** → See [CONTRIBUTING.md](../CONTRIBUTING.md)
 - **Need version info?** → Check [CHANGELOG.md](../CHANGELOG.md)
 
@@ -83,6 +111,8 @@ Root level:
 - [Firefox Extension Workshop](https://extensionworkshop.com/)
 - [MDN WebExtensions API](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)
 - [web-ext Documentation](https://extensionworkshop.com/documentation/develop/getting-started-with-web-ext/)
+- [Submitting an Add-on](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/)
+- [Signing and Distribution](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/)
 - [Strava API Documentation](https://developers.strava.com/)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 
@@ -119,7 +149,19 @@ Found a typo? Have a suggestion? Documentation improvements are welcome!
 1. DEVELOPMENT.md (File Structure)
 2. Browse source code in `src/`
 3. Review tests in `tests/`
-4. Set up CI/CD with CI-CD-SETUP.md
+4. Set up releases with QUICK_REFERENCE.md
+
+**Publishing Your First Release:**
+1. QUICK_REFERENCE.md (Overview)
+2. MANUAL_UPLOAD.md (Step-by-step)
+3. Create manual release tag
+4. Upload to Mozilla Add-ons
+
+**Setting Up CI/CD:**
+1. MANUAL_UPLOAD.md (First submission)
+2. CI-CD-SETUP.md (API credentials)
+3. QUICK_REFERENCE.md (Workflows)
+4. Switch to automatic releases
 
 **Open Source Contributor:**
 1. CONTRIBUTING.md
@@ -131,4 +173,4 @@ Found a typo? Have a suggestion? Documentation improvements are welcome!
 
 **Happy learning!** 🚀
 
-*Last updated: October 27, 2025*
+*Last updated: October 28, 2025*

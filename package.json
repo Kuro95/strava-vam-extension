@@ -16,7 +16,9 @@
     "validate": "web-ext lint --source-dir=dist",
     "validate:package": "node scripts/validate-package.js",
     "dev": "web-ext run --source-dir=dist --firefox-preview",
-    "sign": "web-ext sign --source-dir=dist --artifacts-dir=artifacts"
+    "sign": "node scripts/sign.js",
+    "sign:manual": "web-ext sign --source-dir=dist --artifacts-dir=artifacts --channel=unlisted",
+    "sign:auto": "web-ext sign --source-dir=dist --artifacts-dir=artifacts --channel=listed"
   },
   "repository": {
     "type": "git",
