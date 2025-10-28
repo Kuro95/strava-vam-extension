@@ -10,6 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read  # Read access for checkout
+      
     strategy:
       matrix:
         node-version: [16.x, 18.x, 20.x]
@@ -48,6 +51,9 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read  # Read access for checkout
+      
     steps:
     - uses: actions/checkout@v4
     

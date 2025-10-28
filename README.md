@@ -151,6 +151,44 @@ npm run package
 npm run validate:package
 ```
 
+### Publishing to Firefox Add-ons
+
+#### For First-Time Submission (Manual Upload)
+
+Before your extension is approved by Mozilla, use the manual upload process:
+
+1. **Create a signed release package:**
+   ```bash
+   # Using GitHub Actions (recommended)
+   git tag v1.0.4-manual
+   git push origin v1.0.4-manual
+   ```
+   
+2. **Download the signed .xpi from the [Releases page](https://github.com/Kuro95/strava-vam-extension/releases)**
+
+3. **Manually upload to Mozilla Add-ons:**
+   - Visit https://addons.mozilla.org/developers/
+   - Upload the signed .xpi file
+   - Fill in extension details and submit for review
+
+**📚 Detailed Instructions:** See [docs/MANUAL_UPLOAD.md](docs/MANUAL_UPLOAD.md) for complete step-by-step guide.
+
+#### After Mozilla Approval (Automatic Publishing)
+
+Once your extension is listed and approved on AMO:
+
+1. **Set up API credentials in GitHub Secrets** (see [docs/CI-CD-SETUP.md](docs/CI-CD-SETUP.md))
+2. **Use regular version tags:**
+   ```bash
+   git tag v1.0.5
+   git push origin v1.0.5
+   ```
+3. **GitHub Actions automatically:**
+   - Builds and tests the extension
+   - Signs with Mozilla
+   - Submits to AMO for review
+   - Creates GitHub release with artifacts
+
 ### Project Structure
 ```
 strava-vam-extension/
