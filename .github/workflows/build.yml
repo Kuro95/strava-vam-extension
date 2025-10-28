@@ -4,9 +4,8 @@ on:
   push:
     tags:
       - 'v*.*.*'
-    # Exclude manual release tags
-    tags-ignore:
-      - 'v*.*.*-manual'
+      # Exclude manual release tags (those ending with -manual)
+      - '!v*.*.*-manual'
 
 jobs:
   build-and-release:
