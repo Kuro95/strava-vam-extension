@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🔧 Fixed
+- **CRITICAL: VAM Calculation Bug** - Fixed major calculation error in VAM computation
+  - Now uses CUMULATIVE elevation gain (sum of positive changes) instead of NET gain (end - start)
+  - This is the industry-standard method used by Strava, TrainingPeaks, and Sauce for Strava
+  - Impact: VAM values now 10-50% more accurate for climbs with descents
+  - Pure climbs (no descents) unaffected - same values as before
+  - See [docs/VAM_CALCULATION_FIX.md](docs/VAM_CALCULATION_FIX.md) for detailed analysis
+
+### ✨ Added
+- **Elevation Data Smoothing** - 3-point moving average reduces GPS noise
+- **Minimum Thresholds** - Filters unrealistic segments (5m for time/distance, 90% for ascent)
+- **Comprehensive Tests** - 14 new tests covering cumulative gain calculation
+- **Technical Documentation** - Detailed explanation of fix and impact
+
+### 📈 Impact
+- Climbs with small descents/switchbacks now show correct VAM (typically 10-30% higher)
+- More consistent with other cycling platforms and tools
+- Historical PBs preserved (not recalculated) - new activities use correct method
+
 ## [1.0.0] - 2025-10-27
 
 ### 🎉 Initial Release

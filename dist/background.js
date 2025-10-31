@@ -223,18 +223,61 @@ function calculateVAM(elevationGain, timeSeconds) {
   return (elevationGain / (timeSeconds / 3600));
 }
 
+// Calculate cumulative elevation gain for a segment (sum of positive changes)
+// This is the correct method for VAM - not just end - start elevation
+function calculateCumulativeElevationGain(elevationStream, startIdx, endIdx) {
+  let cumulativeGain = 0;
+  for (let k = startIdx + 1; k <= endIdx; k++) {
+    const diff = elevationStream[k] - elevationStream[k - 1];
+    if (diff > 0) {
+      cumulativeGain += diff;
+    }
+  }
+  return cumulativeGain;
+}
+
+// Apply simple moving average smoothing to elevation data
+// This reduces GPS noise without changing overall elevation profile
+function smoothElevationData(elevationStream, windowSize = 3) {
+  if (elevationStream.length < windowSize) {return elevationStream;}
+
+  const smoothed = [];
+  const halfWindow = Math.floor(windowSize / 2);
+
+  for (let i = 0; i < elevationStream.length; i++) {
+    let sum = 0;
+    let count = 0;
+
+    for (let j = Math.max(0, i - halfWindow); j <= Math.min(elevationStream.length - 1, i + halfWindow); j++) {
+      sum += elevationStream[j];
+      count++;
+    }
+
+    smoothed.push(sum / count);
+  }
+
+  return smoothed;
+}
+
 function findBestVAMByTime(elevationStream, timeStream, targetSeconds, tolerance = 0.1) {
   let maxVAM = 0;
   let bestEffort = null;
 
-  for (let i = 0; i < elevationStream.length; i++) {
-    for (let j = i + 1; j < elevationStream.length; j++) {
+  // Apply smoothing to reduce GPS noise
+  const smoothedElevation = smoothElevationData(elevationStream, 3);
+
+  // Minimum elevation gain threshold to avoid noise (5 meters for time-based)
+  const minElevationGain = 5;
+
+  for (let i = 0; i < smoothedElevation.length; i++) {
+    for (let j = i + 1; j < smoothedElevation.length; j++) {
       const timeDiff = timeStream[j] - timeStream[i];
 
       if (Math.abs(timeDiff - targetSeconds) <= targetSeconds * tolerance) {
-        const elevGain = elevationStream[j] - elevationStream[i];
+        // Use cumulative elevation gain (sum of positive changes)
+        const elevGain = calculateCumulativeElevationGain(smoothedElevation, i, j);
 
-        if (elevGain > 0) {
+        if (elevGain >= minElevationGain) {
           const vam = calculateVAM(elevGain, timeDiff);
 
           if (vam > maxVAM) {
@@ -259,14 +302,21 @@ function findBestVAMByAscent(elevationStream, timeStream, targetAscent, toleranc
   let maxVAM = 0;
   let bestEffort = null;
 
-  for (let i = 0; i < elevationStream.length; i++) {
-    for (let j = i + 1; j < elevationStream.length; j++) {
-      const elevGain = elevationStream[j] - elevationStream[i];
+  // Apply smoothing to reduce GPS noise
+  const smoothedElevation = smoothElevationData(elevationStream, 3);
+
+  // For ascent-based, we want at least 90% of target to ensure meaningful segments
+  const minElevationGain = targetAscent * 0.9;
+
+  for (let i = 0; i < smoothedElevation.length; i++) {
+    for (let j = i + 1; j < smoothedElevation.length; j++) {
+      // Use cumulative elevation gain (sum of positive changes)
+      const elevGain = calculateCumulativeElevationGain(smoothedElevation, i, j);
 
       if (Math.abs(elevGain - targetAscent) <= targetAscent * tolerance) {
         const timeDiff = timeStream[j] - timeStream[i];
 
-        if (timeDiff > 0) {
+        if (timeDiff > 0 && elevGain >= minElevationGain) {
           const vam = calculateVAM(elevGain, timeDiff);
 
           if (vam > maxVAM) {
@@ -293,15 +343,22 @@ function findBestVAMByDistance(elevationStream, timeStream, distanceStream, targ
   let maxVAM = 0;
   let bestEffort = null;
 
-  for (let i = 0; i < elevationStream.length; i++) {
-    for (let j = i + 1; j < elevationStream.length; j++) {
+  // Apply smoothing to reduce GPS noise
+  const smoothedElevation = smoothElevationData(elevationStream, 3);
+
+  // Minimum elevation gain threshold (5 meters for distance-based)
+  const minElevationGain = 5;
+
+  for (let i = 0; i < smoothedElevation.length; i++) {
+    for (let j = i + 1; j < smoothedElevation.length; j++) {
       const distDiff = distanceStream[j] - distanceStream[i];
 
       if (Math.abs(distDiff - targetDistance) <= targetDistance * tolerance) {
-        const elevGain = elevationStream[j] - elevationStream[i];
+        // Use cumulative elevation gain (sum of positive changes)
+        const elevGain = calculateCumulativeElevationGain(smoothedElevation, i, j);
         const timeDiff = timeStream[j] - timeStream[i];
 
-        if (elevGain > 0 && timeDiff > 0) {
+        if (elevGain >= minElevationGain && timeDiff > 0) {
           const vam = calculateVAM(elevGain, timeDiff);
 
           if (vam > maxVAM) {
