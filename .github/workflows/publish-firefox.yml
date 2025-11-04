@@ -66,10 +66,7 @@ jobs:
       run: |
         VERSION="${{ steps.get_version.outputs.VERSION }}"
         # Check if version matches X.Y or X.Y.0 (minor release)
-        if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+$'; then
-          CHANNEL="listed"
-          CHANNEL_NAME="Listed (Minor Release)"
-        elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.0$'; then
+        if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+(\\.0)?$'; then
           CHANNEL="listed"
           CHANNEL_NAME="Listed (Minor Release)"
         else
