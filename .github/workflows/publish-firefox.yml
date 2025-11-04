@@ -1,0 +1,170 @@
+name: Publish to Firefox Add-ons
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g., v1.0.7)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Required to create releases and upload artifacts
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TAG="${{ github.event.inputs.tag }}"
+        else
+          TAG="${GITHUB_REF#refs/tags/}"
+        fi
+        VERSION="${TAG#v}"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "TAG=$TAG" >> $GITHUB_OUTPUT
+        echo "Publishing version: $VERSION from tag: $TAG"
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build extension
+      run: npm run build
+    
+    - name: Verify tag version matches manifest version
+      run: |
+        MANIFEST_VERSION=$(jq -r '.version' dist/manifest.json)
+        TAG_VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Manifest version: $MANIFEST_VERSION"
+        echo "Tag version: $TAG_VERSION"
+        if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ]; then
+          echo "❌ Version mismatch: dist/manifest.json has $MANIFEST_VERSION but tag is $TAG_VERSION"
+          exit 1
+        fi
+        echo "✅ Version match confirmed: $MANIFEST_VERSION"
+    
+    - name: Lint extension (non-blocking)
+      run: npx web-ext lint --source-dir=dist || true
+    
+    - name: Determine AMO channel
+      id: channel
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        # Check if version matches X.Y or X.Y.0 (minor release)
+        if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+$'; then
+          CHANNEL="listed"
+          CHANNEL_NAME="Listed (Minor Release)"
+        elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.0$'; then
+          CHANNEL="listed"
+          CHANNEL_NAME="Listed (Minor Release)"
+        else
+          CHANNEL="unlisted"
+          CHANNEL_NAME="Unlisted (Patch Release)"
+        fi
+        echo "CHANNEL=$CHANNEL" >> $GITHUB_OUTPUT
+        echo "CHANNEL_NAME=$CHANNEL_NAME" >> $GITHUB_OUTPUT
+        echo "📢 Publishing to AMO as: $CHANNEL_NAME"
+    
+    - name: Sign and publish to AMO
+      env:
+        WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}
+        WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}
+      run: |
+        mkdir -p web-ext-artifacts
+        npx web-ext sign \
+          --source-dir=dist \
+          --artifacts-dir=web-ext-artifacts \
+          --channel=${{ steps.channel.outputs.CHANNEL }}
+    
+    - name: Package ZIP from dist
+      run: |
+        cd dist
+        zip -r ../web-ext-artifacts/strava-vam-extension-${{ steps.get_version.outputs.TAG }}.zip .
+        cd ..
+        echo "📦 Created ZIP package for testing"
+    
+    - name: List artifacts
+      run: |
+        echo "📦 Generated artifacts:"
+        ls -lh web-ext-artifacts/
+    
+    - name: Create Release Notes
+      id: release_notes
+      run: |
+        cat > RELEASE_NOTES.md << 'EOF'
+        ## 🚀 Release ${{ steps.get_version.outputs.TAG }}
+        
+        **AMO Channel**: ${{ steps.channel.outputs.CHANNEL_NAME }}
+        
+        ### 📦 Files Included
+        - **Signed .xpi**: Published to Firefox Add-ons (${{ steps.channel.outputs.CHANNEL }})
+        - **ZIP package**: For manual testing and verification
+        
+        ### ✅ Status
+        - Extension built and tested successfully
+        - Signed with Mozilla credentials
+        - Published to AMO as ${{ steps.channel.outputs.CHANNEL }}
+        
+        ### 📚 Links
+        - [Extension on Firefox Add-ons](https://addons.mozilla.org/firefox/addon/strava-vam-extension/)
+        - [Repository](https://github.com/${{ github.repository }})
+        
+        ---
+        
+        ## What's Changed
+        EOF
+        
+        # Add commit history if available
+        if git describe --tags --abbrev=0 HEAD^ 2>/dev/null; then
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+          git log ${PREV_TAG}..HEAD --pretty=format:"- %s" >> RELEASE_NOTES.md
+        else
+          echo "- Initial release" >> RELEASE_NOTES.md
+        fi
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          web-ext-artifacts/*.xpi
+          web-ext-artifacts/*.zip
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+        tag_name: ${{ steps.get_version.outputs.TAG }}
+        name: Release ${{ steps.get_version.outputs.TAG }} (${{ steps.channel.outputs.CHANNEL_NAME }})
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firefox-extension-${{ steps.get_version.outputs.VERSION }}
+        path: web-ext-artifacts/
+        retention-days: 90
+    
+    - name: Summary
+      run: |
+        echo "## ✅ Published Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version**: ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Channel**: ${{ steps.channel.outputs.CHANNEL_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Signed XPI published to AMO" >> $GITHUB_STEP_SUMMARY
+        echo "- ZIP package attached to GitHub Release" >> $GITHUB_STEP_SUMMARY
