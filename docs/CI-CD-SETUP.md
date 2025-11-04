@@ -2,22 +2,19 @@
 
 This guide will help you set up automated testing, building, and publishing for the Strava VAM Extension.
 
-## 🎯 Two Publishing Modes
+## 🎯 Unified Publishing Workflow
 
-The extension supports two release workflows:
+The extension uses a single workflow that automatically determines the publishing channel based on the version:
 
-### 1. **Manual Release** (For First Submission)
-- **Use this BEFORE Mozilla approval**
-- Creates signed .xpi for manual upload
-- Triggered by: `v*.*.*-manual` tags or workflow dispatch
-- Does NOT auto-submit to AMO
-- See: [MANUAL_UPLOAD.md](MANUAL_UPLOAD.md)
-
-### 2. **Automatic Release** (After Mozilla Approval)
-- **Use this AFTER Mozilla approval**
-- Automatically submits to AMO
-- Triggered by: `v*.*.*` tags (no suffix)
-- Requires API credentials
+### Publishing Channels
+- **Listed** (for minor releases): Automatically submitted to AMO for public listing
+  - Triggered by: `vX.Y` or `vX.Y.0` tags (e.g., `v1.1`, `v2.0.0`)
+  - Best for: Major feature releases
+  
+- **Unlisted** (for patch releases): Signed but not auto-submitted for review
+  - Triggered by: `vX.Y.Z` tags where Z > 0 (e.g., `v1.0.7`, `v1.1.1`)
+  - Best for: Bug fixes and minor updates
+  - Can be manually uploaded to AMO if desired
 
 ## 🎯 What Gets Automated
 
@@ -29,19 +26,15 @@ Once configured, GitHub Actions will automatically:
 - ✅ Validate manifest.json
 - ✅ Check for security vulnerabilities
 
-### On Manual Release Tag (e.g., v1.0.0-manual)
+### On Version Tag Push (e.g., v1.1 or v1.0.7)
 - ✅ Run full test suite
 - ✅ Build the extension
-- ✅ Sign with Firefox (unlisted channel)
-- ✅ Create GitHub release with signed .xpi
-- ✅ **Ready for manual upload to AMO**
-
-### On Version Tag Push (e.g., v1.0.0)
-- ✅ Run full test suite
-- ✅ Build the extension
-- ✅ Sign with Firefox (listed channel)
-- ✅ **Automatically submit to Firefox Add-ons store**
-- ✅ Create GitHub release with artifacts
+- ✅ Verify tag version matches manifest.json
+- ✅ Determine channel (listed vs unlisted) based on version
+- ✅ Sign with Firefox Add-ons
+- ✅ Create GitHub release with signed .xpi and ZIP
+- ✅ For listed releases: Auto-submit to AMO for review
+- ✅ For unlisted releases: Sign only (can be manually uploaded)
 
 ## 🔧 Setup Instructions
 
@@ -81,15 +74,15 @@ You need API credentials to automatically sign and publish to Firefox Add-ons.
    - Click **"Settings"** tab (top of repository)
    - Click **"Secrets and variables"** → **"Actions"** (left sidebar)
 
-3. **Add FIREFOX_API_KEY**
+3. **Add WEB_EXT_API_KEY**
    - Click **"New repository secret"**
-   - Name: `FIREFOX_API_KEY`
+   - Name: `WEB_EXT_API_KEY`
    - Secret: Paste your **JWT issuer** (e.g., `user:19544985:357`)
    - Click **"Add secret"**
 
-4. **Add FIREFOX_API_SECRET**
+4. **Add WEB_EXT_API_SECRET**
    - Click **"New repository secret"** again
-   - Name: `FIREFOX_API_SECRET`
+   - Name: `WEB_EXT_API_SECRET`
    - Secret: Paste your **JWT secret** (the long hex string)
    - Click **"Add secret"**
 
@@ -98,93 +91,67 @@ You need API credentials to automatically sign and publish to Firefox Add-ons.
 1. Go to **"Actions"** tab in your repository
 2. You should see workflows:
    - 🧪 **Test and Lint**
-   - 🏗️ **Build and Release (Auto-Submit to AMO)**
-   - 📦 **Manual Release (Signed XPI)**
+   - 🚀 **Publish to Firefox Add-ons**
    - 🔍 **Code Quality**
 3. If they're disabled, click **"I understand my workflows, go ahead and enable them"**
 
 ## 🚀 How to Trigger a Release
 
-### Phase 1: First Submission (Manual Upload)
-
-**Use this BEFORE your extension is approved by Mozilla.**
-
-#### Prerequisites
+### Prerequisites
 1. All tests pass locally: `npm test`
 2. Code is linted: `npm run lint`
 3. Version updated in `src/manifest.json`
 4. CHANGELOG.md updated with changes
 
-#### Option A: Using Workflow Dispatch
+### Option A: Using Git Tags (Recommended)
+
+#### For Patch Releases (Unlisted)
 ```bash
-# 1. Go to GitHub Actions → Manual Release (Signed XPI)
+# 1. Update version in manifest.json to X.Y.Z where Z > 0
+# Edit src/manifest.json and change "version": "1.0.6" to "1.0.7"
+
+# 2. Update CHANGELOG.md
+# Add entry for new version
+
+# 3. Commit changes
+git add src/manifest.json CHANGELOG.md
+git commit -m "chore: bump version to 1.0.7"
+
+# 4. Create and push tag
+git tag v1.0.7
+git push origin main
+git push origin v1.0.7
+
+# Result: Signs extension as unlisted (can be manually uploaded to AMO if desired)
+```
+
+#### For Minor Releases (Listed - Auto-Submit)
+```bash
+# 1. Update version in manifest.json to X.Y or X.Y.0
+# Edit src/manifest.json and change "version": "1.0.7" to "1.1.0"
+
+# 2. Update CHANGELOG.md
+# Add entry for new version
+
+# 3. Commit changes
+git add src/manifest.json CHANGELOG.md
+git commit -m "chore: bump version to 1.1.0"
+
+# 4. Create and push tag
+git tag v1.1.0
+git push origin main
+git push origin v1.1.0
+
+# Result: Signs and automatically submits to AMO for review
+```
+
+### Option B: Using Workflow Dispatch
+```bash
+# 1. Go to GitHub Actions → Publish to Firefox Add-ons
 # 2. Click "Run workflow"
-# 3. Enter version number (e.g., 1.0.4)
+# 3. Enter tag name (e.g., v1.0.7)
 # 4. Click "Run workflow"
 # 5. Download signed .xpi from Releases page
-```
-
-#### Option B: Using Git Tags
-```bash
-# 1. Update version in manifest.json
-# Edit src/manifest.json and change "version": "1.0.0" to "1.0.4"
-
-# 2. Update CHANGELOG.md
-# Add entry for new version
-
-# 3. Commit changes
-git add src/manifest.json CHANGELOG.md
-git commit -m "chore: bump version to 1.0.4"
-
-# 4. Create and push tag with -manual suffix
-git tag v1.0.4-manual
-git push origin main
-git push origin v1.0.4-manual
-```
-
-#### What Happens Next
-1. **GitHub Actions Starts** (automatically on tag push)
-2. **Build Process** (2-5 minutes)
-   - Runs tests
-   - Builds extension
-   - Signs with Firefox (unlisted channel)
-   - Creates GitHub release
-3. **Manual Upload Required**
-   - Download .xpi from GitHub Releases
-   - Upload to https://addons.mozilla.org/developers/
-   - Wait for Mozilla review (1-7 days typically)
-
-**📚 See [MANUAL_UPLOAD.md](MANUAL_UPLOAD.md) for detailed upload instructions.**
-
-### Phase 2: Automatic Submission (After Approval)
-
-**Use this AFTER your extension is approved and listed on Mozilla Add-ons.**
-
-#### Prerequisites
-1. Extension is **approved and listed** on AMO
-2. API credentials configured (see below)
-3. All tests pass locally: `npm test`
-4. Code is linted: `npm run lint`
-5. Version updated in `src/manifest.json`
-6. CHANGELOG.md updated with changes
-
-#### Release Steps
-
-```bash
-# 1. Update version in manifest.json
-# Edit src/manifest.json and change "version": "1.0.4" to "1.0.5"
-
-# 2. Update CHANGELOG.md
-# Add entry for new version
-
-# 3. Commit changes
-git add src/manifest.json CHANGELOG.md
-git commit -m "chore: bump version to 1.0.5"
-
-# 4. Create and push tag (NO -manual suffix)
-git tag v1.0.5
-git push origin main
-git push origin v1.0.5
 ```
 
 #### What Happens Next
@@ -252,12 +219,12 @@ The workflow files in `.github/workflows/` define what gets executed. Review the
 
 ### "Secrets not found" Error
 
-**Problem**: GitHub Actions can't find FIREFOX_API_KEY or FIREFOX_API_SECRET
+**Problem**: GitHub Actions can't find WEB_EXT_API_KEY or WEB_EXT_API_SECRET
 
 **Solution**:
 1. Go to Settings → Secrets and variables → Actions
 2. Verify both secrets exist
-3. Check spelling matches exactly: `FIREFOX_API_KEY` and `FIREFOX_API_SECRET`
+3. Check spelling matches exactly: `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET`
 4. Re-add secrets if necessary
 
 ### "web-ext sign failed" Error
@@ -313,14 +280,14 @@ Runs on every push and PR:
 - Runs unit tests
 - Validates extension
 
-### `.github/workflows/build.yml`
-Runs on version tags (v*.*.):
+### `.github/workflows/publish-firefox.yml`
+Runs on version tags (v*) or workflow dispatch:
 - Verifies version matches tag
-- Runs full test suite
 - Builds extension
-- Signs with Firefox
+- Determines channel (listed vs unlisted) based on version
+- Signs with Firefox Add-ons
 - Creates GitHub release
-- Publishes to Firefox Add-ons
+- Publishes to AMO (for listed releases)
 
 ### `.github/workflows/lint.yml`
 Runs on push and PR:
@@ -336,33 +303,33 @@ Runs on push and PR:
 
 ## ✅ Checklist
 
-### Before First Release (Manual Upload):
+### Initial Setup:
+
+- [ ] Mozilla Add-ons account created
+- [ ] API credentials generated
+- [ ] GitHub secrets added (WEB_EXT_API_KEY and WEB_EXT_API_SECRET)
+- [ ] Workflows enabled in GitHub Actions
+
+### Before Each Release:
 
 - [ ] Version updated in src/manifest.json
 - [ ] CHANGELOG.md updated
 - [ ] All tests passing locally (`npm test`)
 - [ ] Code linted (`npm run lint`)
 - [ ] Extension validates (`npm run validate`)
-- [ ] Created manual release tag (e.g., `v1.0.4-manual`)
-- [ ] Downloaded signed .xpi from GitHub Releases
-- [ ] Mozilla Add-ons account created
-- [ ] Manually uploaded .xpi to https://addons.mozilla.org/developers/
-- [ ] Extension submitted and awaiting review
+- [ ] Decide on channel:
+  - [ ] For patch releases (vX.Y.Z where Z>0): Unlisted
+  - [ ] For minor releases (vX.Y or vX.Y.0): Listed (auto-submits to AMO)
 
-### After Mozilla Approval (Automatic Publishing):
-
-- [ ] Extension approved and listed on AMO
-- [ ] API credentials generated
-- [ ] GitHub secrets added (FIREFOX_API_KEY and FIREFOX_API_SECRET)
-- [ ] Workflows enabled in GitHub Actions
-- [ ] Version updated in manifest.json
-- [ ] CHANGELOG.md updated
-- [ ] All tests passing locally
-- [ ] Code linted
+### Release Process:
 
 After setup, releases are just:
 ```bash
-git tag vX.Y.Z && git push origin vX.Y.Z
+# For patch releases (unlisted)
+git tag v1.0.7 && git push origin v1.0.7
+
+# For minor releases (listed, auto-submit)
+git tag v1.1.0 && git push origin v1.1.0
 ```
 
 🎉 **You're all set!** Your extension will now automatically build, test, and publish on every release!

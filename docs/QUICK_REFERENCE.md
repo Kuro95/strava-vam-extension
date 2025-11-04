@@ -18,82 +18,59 @@
 
 ---
 
-## 📋 Manual Release (Pre-Approval)
+## 🚀 Publishing to Firefox Add-ons
 
-**When to use:** First submission or when you want manual control
+### Channel Selection (Automatic)
 
-### Quick Start
+The workflow automatically determines the channel based on version:
+
+- **Unlisted** (Patch): vX.Y.Z where Z > 0 (e.g., v1.0.7, v1.1.1)
+  - Signs but doesn't auto-submit
+  - Good for: Bug fixes, minor updates
+  
+- **Listed** (Minor): vX.Y or vX.Y.0 (e.g., v1.1.0, v2.0.0)
+  - Signs and auto-submits to AMO
+  - Good for: Feature releases
+
+### Quick Start - Patch Release (Unlisted)
 ```bash
-# 1. Update version in src/manifest.json to 1.0.4
+# 1. Update version in src/manifest.json to X.Y.Z (where Z > 0)
 # 2. Update CHANGELOG.md
 
 # 3. Commit and tag
 git add src/manifest.json CHANGELOG.md
-git commit -m "chore: bump version to 1.0.4"
-git tag v1.0.4-manual
-git push origin main v1.0.4-manual
+git commit -m "chore: bump version to 1.0.7"
+git tag v1.0.7
+git push origin main v1.0.7
 
-# 4. Wait for GitHub Actions to complete (3-5 min)
-# 5. Download signed .xpi from Releases page
-# 6. Upload to https://addons.mozilla.org/developers/
+# 4. Wait for GitHub Actions (3-5 min)
+# 5. Download signed .xpi from GitHub Releases
+# 6. Manually upload to AMO if desired
 ```
 
-### What Happens
-1. ✅ Tests run
-2. ✅ Extension built
-3. ✅ Package validated
-4. ✅ Signed with Mozilla (unlisted channel)
-5. ✅ GitHub release created with .xpi
-6. ⏸️ **You manually upload to AMO**
-
-### Workflow File
-`.github/workflows/release-manual.yml`
-
-### Alternative: Workflow Dispatch
-1. Go to Actions → Manual Release (Signed XPI)
-2. Click "Run workflow"
-3. Enter version: `1.0.4`
-4. Click "Run workflow"
-
----
-
-## 🚀 Automatic Release (Post-Approval)
-
-**When to use:** After extension is approved and listed on AMO
-
-### Quick Start
+### Quick Start - Minor Release (Listed)
 ```bash
-# 1. Update version in src/manifest.json to 1.0.5
+# 1. Update version in src/manifest.json to X.Y.0
 # 2. Update CHANGELOG.md
 
 # 3. Commit and tag
 git add src/manifest.json CHANGELOG.md
-git commit -m "chore: bump version to 1.0.5"
-git tag v1.0.5
-git push origin main v1.0.5
+git commit -m "chore: bump version to 1.1.0"
+git tag v1.1.0
+git push origin main v1.1.0
 
-# 4. Wait for GitHub Actions to complete (3-5 min)
+# 4. Wait for GitHub Actions (3-5 min)
 # 5. Extension automatically submitted to AMO
 # 6. Wait for Mozilla review (1-3 days)
 ```
 
-### What Happens
-1. ✅ Tests run
-2. ✅ Extension built
-3. ✅ Package validated
-4. ✅ Signed with Mozilla (listed channel)
-5. ✅ **Automatically submitted to AMO**
-6. ✅ GitHub release created with .xpi
-7. ⏳ Mozilla reviews (you get email notification)
-
 ### Workflow File
-`.github/workflows/build.yml`
+`.github/workflows/publish-firefox.yml`
 
 ### Prerequisites
-- Extension must be approved and listed
 - GitHub Secrets configured:
-  - `FIREFOX_API_KEY`
-  - `FIREFOX_API_SECRET`
+  - `WEB_EXT_API_KEY`
+  - `WEB_EXT_API_SECRET`
 
 ---
 
@@ -133,40 +110,37 @@ npm run sign
 
 ---
 
-## 📊 Workflow Comparison
+## 📊 Publishing Channels
 
-| Feature | Manual Release | Automatic Release |
-|---------|---------------|-------------------|
-| **Tag Format** | `v1.0.4-manual` | `v1.0.4` |
+| Feature | Patch Release (Unlisted) | Minor Release (Listed) |
+|---------|--------------------------|------------------------|
+| **Tag Format** | `v1.0.7` (Z > 0) | `v1.1.0` or `v1.1` |
 | **Channel** | unlisted | listed |
 | **Auto-Submit** | No | Yes |
-| **Use When** | Pre-approval | Post-approval |
-| **Manual Upload** | Required | Not needed |
-| **API Credentials** | Optional* | Required |
-| **Workflow File** | `release-manual.yml` | `build.yml` |
-
-*API credentials still needed for signing, but can skip if using unsigned package for first submission
+| **Use When** | Bug fixes, minor updates | Feature releases |
+| **Manual Upload** | Optional | Not needed |
+| **Workflow File** | `publish-firefox.yml` | `publish-firefox.yml` |
 
 ---
 
 ## 🎓 Common Scenarios
 
-### Scenario 1: First-Time Submission
+### Scenario 1: First-Time Submission (Patch)
 ```bash
-# Create manual release
-git tag v1.0.0-manual
-git push origin v1.0.0-manual
+# Create patch release (unlisted)
+git tag v1.0.7
+git push origin v1.0.7
 
 # Download .xpi from Releases
 # Manually upload to AMO
 # Wait for approval
 ```
 
-### Scenario 2: Update After Approval
+### Scenario 2: Feature Release (Auto-Submit)
 ```bash
-# Create automatic release
-git tag v1.0.1
-git push origin v1.0.1
+# Create minor release (listed)
+git tag v1.1.0
+git push origin v1.1.0
 
 # Workflow auto-submits to AMO
 # Wait for approval

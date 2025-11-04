@@ -92,22 +92,26 @@ Firefox requires all extensions to be signed by Mozilla before they can be insta
 
 **For Manual Upload (Pre-Approval):**
 ```bash
-git tag v1.0.4-manual
-git push origin v1.0.4-manual
+**For Patch Releases (Unlisted):**
+```bash
+git tag v1.0.7
+git push origin v1.0.7
 ```
 
-**Workflow:** `.github/workflows/release-manual.yml`
+**Workflow:** `.github/workflows/publish-firefox.yml`
+- Detects patch release (vX.Y.Z where Z > 0)
 - Signs with `--channel=unlisted`
-- Creates signed .xpi for manual upload
+- Creates signed .xpi ready for manual upload if desired
 - Does NOT auto-submit to AMO
 
-**For Automatic Submission (Post-Approval):**
+**For Minor Releases (Listed - Auto-Submit):**
 ```bash
-git tag v1.0.5
-git push origin v1.0.5
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-**Workflow:** `.github/workflows/build.yml`
+**Workflow:** `.github/workflows/publish-firefox.yml`
+- Detects minor release (vX.Y or vX.Y.0)
 - Signs with `--channel=listed`
 - Automatically submits to AMO
 - Creates GitHub release
@@ -299,19 +303,19 @@ All build scripts are in `scripts/` directory:
 
 ## 🔄 CI/CD Integration
 
-### GitHub Actions Workflows
+### GitHub Actions Workflow
 
-**Manual Release:** `.github/workflows/release-manual.yml`
-- Triggered by: `v*.*.*-manual` tags or workflow dispatch
-- Purpose: Pre-approval manual upload
-- Channel: unlisted
-- Auto-submit: No
-
-**Automatic Release:** `.github/workflows/build.yml`
-- Triggered by: `v*.*.*` tags
-- Purpose: Post-approval automatic submission
-- Channel: listed
-- Auto-submit: Yes
+**Unified Publishing:** `.github/workflows/publish-firefox.yml`
+- Triggered by: `v*` tags or workflow dispatch
+- Channel determination:
+  - **Listed** (auto-submit): vX.Y or vX.Y.0 (e.g., v1.1, v2.0.0)
+  - **Unlisted**: vX.Y.Z where Z > 0 (e.g., v1.0.7, v1.1.1)
+- Features:
+  - Verifies tag version matches manifest.json
+  - Builds and lints extension
+  - Signs with Mozilla credentials
+  - Creates GitHub release with signed .xpi and ZIP
+  - Auto-submits to AMO for listed releases
 
 ### Required GitHub Secrets
 
