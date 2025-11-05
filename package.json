@@ -1,6 +1,6 @@
 {
   "name": "strava-vam-extension",
-  "version": "1.0.4",
+  "version": "1.0.10",
   "description": "Track and display your VAM (Vertical Ascent Meters per hour) personal bests across all Strava activities",
   "scripts": {
     "lint": "eslint src/**/*.js",
