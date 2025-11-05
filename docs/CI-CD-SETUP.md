@@ -83,15 +83,17 @@ You need API credentials to automatically sign and publish to Firefox Add-ons.
 
 3. **Add FIREFOX_API_KEY**
    - Click **"New repository secret"**
-   - Name: `FIREFOX_API_KEY`
+   - Name: `FIREFOX_API_KEY` (recommended) or `WEB_EXT_API_KEY` (alternative)
    - Secret: Paste your **JWT issuer** (e.g., `user:19544985:357`)
    - Click **"Add secret"**
 
 4. **Add FIREFOX_API_SECRET**
    - Click **"New repository secret"** again
-   - Name: `FIREFOX_API_SECRET`
+   - Name: `FIREFOX_API_SECRET` (recommended) or `WEB_EXT_API_SECRET` (alternative)
    - Secret: Paste your **JWT secret** (the long hex string)
    - Click **"Add secret"**
+
+> **Note:** The workflows support both secret naming conventions for backward compatibility. Use `FIREFOX_API_KEY`/`FIREFOX_API_SECRET` (recommended) or `WEB_EXT_API_KEY`/`WEB_EXT_API_SECRET`.
 
 ### Step 3: Verify Workflows Are Enabled
 
