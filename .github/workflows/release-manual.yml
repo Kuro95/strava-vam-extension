@@ -71,10 +71,27 @@ jobs:
     - name: Validate with web-ext lint
       run: npm run validate
     
+    - name: Verify Firefox API credentials
+      env:
+        WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY || secrets.WEB_EXT_API_KEY }}
+        WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET || secrets.WEB_EXT_API_SECRET }}
+      run: |
+        if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+          echo "❌ ERROR: Firefox API credentials not found!"
+          echo ""
+          echo "Please configure GitHub Secrets with one of these combinations:"
+          echo "  Option 1: FIREFOX_API_KEY and FIREFOX_API_SECRET (recommended)"
+          echo "  Option 2: WEB_EXT_API_KEY and WEB_EXT_API_SECRET"
+          echo ""
+          echo "See docs/CI-CD-SETUP.md for detailed instructions."
+          exit 1
+        fi
+        echo "✅ Firefox API credentials found"
+    
     - name: Sign extension (no auto-submit)
       env:
-        WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
-        WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET }}
+        WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY || secrets.WEB_EXT_API_KEY }}
+        WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET || secrets.WEB_EXT_API_SECRET }}
       run: |
         mkdir -p artifacts
         # Sign without auto-submit using --channel=unlisted

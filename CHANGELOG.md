@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] - 2025-11-05
+
+### 🔧 Fixed
+- **Automatic Release Workflow** - Fixed GitHub Actions workflow failures preventing automatic extension creation
+  - Removed duplicate `publish-firefox.yml` workflow that was conflicting with main build workflow
+  - Added credential validation with helpful error messages before signing attempts
+  - Support both `FIREFOX_API_KEY` and `WEB_EXT_API_KEY` secret naming conventions
+  - Updated manifest.json to use `browser_specific_settings` instead of deprecated `applications` property
+
+### 📚 Documentation
+- Updated CI-CD-SETUP.md to reflect both supported secret naming conventions
+- Added troubleshooting guidance for authentication failures
+
 ## [Unreleased]
 
 ### 🔧 Fixed
