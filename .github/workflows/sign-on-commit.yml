@@ -1,0 +1,131 @@
+name: Build and Sign Extension (Every Commit)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-sign:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read  # Read access for checkout
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Run linter
+      run: npm run lint
+    
+    - name: Build extension
+      run: npm run build
+    
+    - name: Package extension
+      run: npm run package
+    
+    - name: Run package structure tests
+      run: npm run test:package
+    
+    - name: Validate package structure
+      run: npm run validate:package
+    
+    - name: Validate with web-ext lint
+      run: npm run validate
+    
+    - name: Check for Firefox API credentials
+      id: check_credentials
+      env:
+        WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY || secrets.WEB_EXT_API_KEY }}
+        WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET || secrets.WEB_EXT_API_SECRET }}
+      run: |
+        if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+          echo "credentials_available=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Firefox API credentials not found - will upload unsigned package only"
+        else
+          echo "credentials_available=true" >> $GITHUB_OUTPUT
+          echo "✅ Firefox API credentials found - will sign the extension"
+        fi
+    
+    - name: Sign extension (if credentials available)
+      if: steps.check_credentials.outputs.credentials_available == 'true'
+      env:
+        WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY || secrets.WEB_EXT_API_KEY }}
+        WEB_EXT_API_SECRET: ${{ secrets.FIREFOX_API_SECRET || secrets.WEB_EXT_API_SECRET }}
+      run: |
+        mkdir -p artifacts
+        # Sign without auto-submit using --channel=unlisted
+        # This creates a signed .xpi for manual testing
+        npx web-ext sign \
+          --source-dir=dist \
+          --artifacts-dir=artifacts \
+          --channel=unlisted \
+          --api-key=$WEB_EXT_API_KEY \
+          --api-secret=$WEB_EXT_API_SECRET
+    
+    - name: List generated artifacts
+      if: steps.check_credentials.outputs.credentials_available == 'true'
+      run: |
+        echo "📦 Generated artifacts:"
+        ls -lh artifacts/ || echo "No artifacts directory found"
+    
+    - name: Upload signed extension artifact
+      if: steps.check_credentials.outputs.credentials_available == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-extension-${{ github.sha }}
+        path: artifacts/*.xpi
+        retention-days: 30
+        if-no-files-found: warn
+    
+    - name: Upload unsigned package (if no credentials)
+      if: steps.check_credentials.outputs.credentials_available == 'false'
+      uses: actions/upload-artifact@v4
+      with:
+        name: unsigned-package-${{ github.sha }}
+        path: dist/strava-vam-extension-v*.zip
+        retention-days: 30
+        if-no-files-found: warn
+    
+    - name: Summary
+      run: |
+        echo "## ✅ Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.check_credentials.outputs.credentials_available }}" = "true" ]; then
+          echo "- **Signed .xpi file** - Ready for manual testing in Firefox" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 How to Download and Install" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to the **Actions** tab above" >> $GITHUB_STEP_SUMMARY
+          echo "2. Click on this workflow run" >> $GITHUB_STEP_SUMMARY
+          echo "3. Scroll down to **Artifacts** section" >> $GITHUB_STEP_SUMMARY
+          echo "4. Download the \`signed-extension-${{ github.sha }}\` artifact" >> $GITHUB_STEP_SUMMARY
+          echo "5. Extract the .xpi file from the downloaded zip" >> $GITHUB_STEP_SUMMARY
+          echo "6. In Firefox, go to \`about:addons\`" >> $GITHUB_STEP_SUMMARY
+          echo "7. Click the gear icon ⚙️ → **Install Add-on From File**" >> $GITHUB_STEP_SUMMARY
+          echo "8. Select the downloaded .xpi file" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** This is a signed .xpi for testing purposes only. It is not submitted to Mozilla Add-ons." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Unsigned package** - Firefox API credentials not configured" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ No Signing Performed" >> $GITHUB_STEP_SUMMARY
+          echo "Firefox API credentials are not configured in repository secrets." >> $GITHUB_STEP_SUMMARY
+          echo "The unsigned package can still be loaded as a temporary add-on for testing." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To enable automatic signing, see [CI-CD-SETUP.md](docs/CI-CD-SETUP.md)" >> $GITHUB_STEP_SUMMARY
+        fi

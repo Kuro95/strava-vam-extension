@@ -46,6 +46,31 @@ Track your best VAM over fixed distances:
 3. Grant the necessary permissions
 4. Start using the extension on Strava.com!
 
+### From Signed Build Artifacts (Latest Commits) 🆕
+
+**Test the latest development version directly from GitHub Actions!**
+
+Every commit to the repository now produces a signed `.xpi` file that you can install permanently in Firefox.
+
+1. Go to the [Actions tab](https://github.com/Kuro95/strava-vam-extension/actions/workflows/sign-on-commit.yml)
+2. Click on the latest successful workflow run
+3. Scroll down to the **Artifacts** section
+4. Download the `signed-extension-{SHA}` artifact
+5. Extract the `.xpi` file from the downloaded zip
+6. In Firefox:
+   - Go to `about:addons`
+   - Click the gear icon ⚙️ → **Install Add-on From File**
+   - Select the downloaded `.xpi` file
+7. The extension is now permanently installed!
+
+**Benefits:**
+- ✅ Signed extension installs permanently (survives Firefox restart)
+- ✅ Test cutting-edge features before official releases
+- ✅ Easy access to pre-release versions
+- ✅ No build environment needed
+
+**Note:** These are testing builds from the unlisted channel. For the official stable version, use the Firefox Add-ons page above.
+
 ### Manual Installation (Development)
 1. Clone this repository
 2. Run `npm install`
