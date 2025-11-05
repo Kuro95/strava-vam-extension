@@ -23,11 +23,16 @@ The extension supports two release workflows:
 
 Once configured, GitHub Actions will automatically:
 
-### On Every Push/Pull Request
+### On Every Push/Pull Request to main or develop
 - ✅ Run ESLint to check code quality
 - ✅ Run all unit tests
 - ✅ Validate manifest.json
+- ✅ Build the extension
+- ✅ Sign with Firefox (if credentials are configured)
+- ✅ **Upload signed .xpi as downloadable artifact for testing**
 - ✅ Check for security vulnerabilities
+
+**💡 New Feature:** Every commit now produces a signed .xpi file that you can download from the GitHub Actions tab for immediate testing in Firefox, without needing to create a release tag!
 
 ### On Manual Release Tag (e.g., v1.0.0-manual)
 - ✅ Run full test suite
@@ -100,10 +105,57 @@ You need API credentials to automatically sign and publish to Firefox Add-ons.
 1. Go to **"Actions"** tab in your repository
 2. You should see workflows:
    - 🧪 **Test and Lint**
+   - 🔐 **Build and Sign Extension (Every Commit)** - NEW!
    - 🏗️ **Build and Release (Auto-Submit to AMO)**
    - 📦 **Manual Release (Signed XPI)**
    - 🔍 **Code Quality**
 3. If they're disabled, click **"I understand my workflows, go ahead and enable them"**
+
+## 🚀 Testing Signed Extensions from Commits
+
+### Download Signed .xpi from GitHub Actions
+
+Every commit to the `main` or `develop` branches now automatically builds and signs the extension, making it easy to test the latest changes without creating a release.
+
+#### How to Download and Install
+
+1. **Go to Actions Tab**
+   - Visit: `https://github.com/Kuro95/strava-vam-extension/actions`
+   - Click on **"Build and Sign Extension (Every Commit)"** workflow
+
+2. **Select a Workflow Run**
+   - Click on the commit/run you want to test
+   - Scroll down to the **Artifacts** section at the bottom
+
+3. **Download the Artifact**
+   - If API credentials are configured: Download `signed-extension-{SHA}`
+   - If no credentials: Download `unsigned-package-{SHA}` (can be loaded as temporary add-on)
+
+4. **Extract and Install**
+   - Extract the downloaded zip file
+   - For signed .xpi files:
+     - Open Firefox
+     - Go to `about:addons`
+     - Click the gear icon ⚙️ → **Install Add-on From File**
+     - Select the `.xpi` file
+   - For unsigned packages:
+     - Go to `about:debugging#/runtime/this-firefox`
+     - Click **"Load Temporary Add-on"**
+     - Select the `manifest.json` from the extracted package
+
+#### Benefits of This Workflow
+
+- **Rapid Testing**: Test every commit without waiting for releases
+- **Developer Feedback**: Quickly validate changes in real Firefox environment
+- **Pre-Release Validation**: Catch issues before creating official releases
+- **Team Testing**: Share artifacts with team members for testing
+
+#### Notes
+
+- Signed .xpi files from this workflow are for testing only (unlisted channel)
+- They are NOT automatically submitted to Mozilla Add-ons
+- Artifacts are retained for 30 days
+- Each commit gets a unique artifact with its SHA hash
 
 ## 🚀 How to Trigger a Release
 
