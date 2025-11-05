@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Strava VAM Extension",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Track and display your VAM (Vertical Ascent Meters per hour) personal bests across all Strava activities.",
   "icons": {
     "16": "icons/icon16.png",
