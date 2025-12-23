@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🔧 Fixed
+- **Robust DOM Selectors** - Updated content script with multiple fallback selectors for Strava's changing page structure
+  - Added 15+ fallback selectors for activity page injection point
+  - Added multiple fallback selectors for activity name and sport type extraction
+  - Extension now adapts to Strava's modern React-based UI
+- **User-Visible Error Messages** - Added error widget with retry button when data loading fails
+- **Floating Widget Fallback** - When injection point not found, displays a floating widget
+- **API Retry Logic** - Added exponential backoff retry logic for API calls (3 retries)
+- **SPA Support** - Added URL change observer for Strava's single-page navigation
+
+### ✨ Added
+- **Expanded Activity Type Support** - Bulk sync now processes:
+  - Ride, VirtualRide, Run, VirtualRun
+  - Hike, Walk, RockClimbing
+  - BackcountrySki, AlpineSki, NordicSki, Snowshoe
+- **Error Handling UI** - Visual error messages with retry functionality
+- **Floating Widget** - Compact widget for when normal injection fails
+
+### 🎨 Improved
+- **Dark Mode** - Added dark mode styles for error and floating widgets
+- **Animations** - Added slide-in animation for floating widget
+- **Logging** - Better console logging for debugging
+
 ## [1.0.10] - 2025-11-05
 
 ### 🔧 Fixed
@@ -18,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI-CD-SETUP.md to reflect both supported secret naming conventions
 - Added troubleshooting guidance for authentication failures
 
-## [Unreleased]
+## [1.0.9] - 2025-10-30
 
 ### 🔧 Fixed
 - **CRITICAL: VAM Calculation Bug** - Fixed major calculation error in VAM computation

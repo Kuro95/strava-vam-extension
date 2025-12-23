@@ -71,43 +71,83 @@ async function syncAllActivities(maxActivities = 100) {
   }
 }
 
-// Fetch athlete's activities
+// Supported activity types for VAM calculation
+const SUPPORTED_ACTIVITY_TYPES = [
+  'Ride',
+  'VirtualRide',
+  'Run',
+  'VirtualRun',
+  'Hike',
+  'Walk',
+  'RockClimbing',
+  'BackcountrySki',
+  'AlpineSki',
+  'NordicSki',
+  'Snowshoe'
+];
+
+// Fetch athlete's activities with retry logic
 async function fetchAthleteActivities(maxActivities) {
   const activities = [];
   const perPage = 30;
   let page = 1;
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 3;
 
-  while (activities.length < maxActivities) {
+  while (activities.length < maxActivities && consecutiveErrors < maxConsecutiveErrors) {
     try {
       const url = `https://www.strava.com/athlete/training_activities?new_activity_only=false&page=${page}&per_page=${perPage}`;
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
 
-      if (!response.ok) {break;}
+      let response;
+      let lastError;
+
+      // Retry logic with exponential backoff
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          response = await fetch(url, {
+            credentials: 'include',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          if (response.ok) {break;}
+          lastError = new Error(`HTTP ${response.status}`);
+        } catch (fetchError) {
+          lastError = fetchError;
+          if (attempt < 2) {
+            await sleep(1000 * (attempt + 1));
+          }
+        }
+      }
+
+      if (!response || !response.ok) {
+        console.error('Failed to fetch activities page after retries:', lastError);
+        consecutiveErrors++;
+        continue;
+      }
+
+      consecutiveErrors = 0; // Reset on success
 
       const data = await response.json();
 
       if (!data.models || data.models.length === 0) {break;}
 
-      // Filter for cycling activities with elevation
-      const cyclingActivities = data.models.filter(a =>
-        a.type === 'Ride' && a.elevation_gain > 50
+      // Filter for supported activity types with elevation
+      const validActivities = data.models.filter(a =>
+        SUPPORTED_ACTIVITY_TYPES.includes(a.type) && a.elevation_gain > 50
       );
 
-      activities.push(...cyclingActivities);
+      activities.push(...validActivities);
 
       if (data.models.length < perPage) {break;}
       page++;
     } catch (error) {
       console.error('Error fetching activities:', error);
-      break;
+      consecutiveErrors++;
     }
   }
 
+  console.log(`Fetched ${activities.length} valid activities from ${page} pages`);
   return activities.slice(0, maxActivities);
 }
 
@@ -143,23 +183,45 @@ async function processActivity(activity) {
   }
 }
 
-// Fetch activity stream data
-async function fetchActivityStreams(activityId) {
+// Fetch activity stream data with retry logic
+async function fetchActivityStreams(activityId, retries = 3) {
+  const url = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
+
+  let response;
+  let lastError;
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      response = await fetch(url, {
+        credentials: 'include'
+      });
+
+      if (response.ok) {break;}
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (fetchError) {
+      lastError = fetchError;
+      if (attempt < retries - 1) {
+        await sleep(500 * (attempt + 1));
+      }
+    }
+  }
+
+  if (!response || !response.ok) {
+    console.error(`Failed to fetch streams for activity ${activityId}:`, lastError);
+    return null;
+  }
+
   try {
-    const url = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
-    const response = await fetch(url, {
-      credentials: 'include'
-    });
-
-    if (!response.ok) {return null;}
-
     const data = await response.json();
 
     const altitudeData = data.altitude || data.find(s => s.type === 'altitude');
     const timeData = data.time || data.find(s => s.type === 'time');
     const distanceData = data.distance || data.find(s => s.type === 'distance');
 
-    if (!altitudeData || !timeData) {return null;}
+    if (!altitudeData || !timeData) {
+      console.log(`Activity ${activityId} has no altitude or time data`);
+      return null;
+    }
 
     return {
       elevation: altitudeData.data || altitudeData,
@@ -167,7 +229,7 @@ async function fetchActivityStreams(activityId) {
       distance: distanceData ? (distanceData.data || distanceData) : null
     };
   } catch (error) {
-    console.error('Error fetching streams:', error);
+    console.error(`Error parsing streams for activity ${activityId}:`, error);
     return null;
   }
 }

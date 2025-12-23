@@ -207,16 +207,38 @@
     return bestEffort || { vam: 0, elevationGain: 0, duration: 0, distance: targetDistance };
   }
 
-  // Get activity data from Strava
-  async function getActivityData() {
+  // Get activity data from Strava with retry logic
+  async function getActivityData(retries = 3) {
     try {
       const activityId = window.location.pathname.match(/\/activities\/(\d+)/)?.[1];
-      if (!activityId) {return null;}
+      if (!activityId) {
+        console.log('VAM Extension: Not on an activity page');
+        return null;
+      }
 
       const streamUrl = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
 
-      const response = await fetch(streamUrl, { credentials: 'same-origin' });
-      if (!response.ok) {return null;}
+      let response;
+      let lastError;
+
+      // Retry logic for API calls
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          response = await fetch(streamUrl, { credentials: 'same-origin' });
+          if (response.ok) {break;}
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        } catch (fetchError) {
+          lastError = fetchError;
+          if (attempt < retries - 1) {
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // Exponential backoff
+          }
+        }
+      }
+
+      if (!response || !response.ok) {
+        console.error('VAM Extension: Failed to fetch activity streams after retries', lastError);
+        return { error: 'fetch_failed', message: 'Could not load activity data. Please refresh the page.' };
+      }
 
       const data = await response.json();
 
@@ -224,15 +246,14 @@
       const timeData = data.time || data.find(s => s.type === 'time');
       const distanceData = data.distance || data.find(s => s.type === 'distance');
 
-      if (!altitudeData || !timeData) {return null;}
+      if (!altitudeData || !timeData) {
+        console.log('VAM Extension: Activity has no elevation or time data');
+        return { error: 'no_elevation', message: 'This activity has no elevation data.' };
+      }
 
-      // Extract activity metadata from the page
-      const activityName = document.querySelector('.activity-name')?.textContent?.trim() ||
-                                document.querySelector('h1.text-title1')?.textContent?.trim() ||
-                                'Untitled Activity';
-      const sportType = document.querySelector('[data-sport-type]')?.dataset?.sportType ||
-                             document.querySelector('.activity-icon')?.className?.match(/icon-([a-z]+)/)?.[1] ||
-                             'Ride';
+      // Extract activity metadata from the page with multiple fallback selectors
+      const activityName = extractActivityName();
+      const sportType = extractSportType();
 
       return {
         activityId,
@@ -246,9 +267,67 @@
         }
       };
     } catch (error) {
-      console.error('Error fetching activity data:', error);
-      return null;
+      console.error('VAM Extension: Error fetching activity data:', error);
+      return { error: 'unknown', message: 'An unexpected error occurred.' };
     }
+  }
+
+  // Extract activity name with multiple fallback selectors
+  function extractActivityName() {
+    const selectors = [
+      '.activity-name',
+      'h1.text-title1',
+      'h1.Activity_name',
+      '[data-testid="activity_name"]',
+      'h1[class*="activity"]',
+      'h1[class*="Activity"]',
+      '.Activity--heading h1',
+      'header h1',
+      'h1'
+    ];
+
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element?.textContent?.trim()) {
+        return element.textContent.trim();
+      }
+    }
+    return 'Untitled Activity';
+  }
+
+  // Extract sport type with multiple fallback selectors
+  function extractSportType() {
+    // Try data attribute first
+    const dataElement = document.querySelector('[data-sport-type]');
+    if (dataElement?.dataset?.sportType) {
+      return dataElement.dataset.sportType;
+    }
+
+    // Try various class-based selectors
+    const iconSelectors = [
+      '.activity-icon',
+      '[class*="activity-icon"]',
+      '[class*="sport-icon"]',
+      '.Activity_icon',
+      '[data-testid="activity_icon"]'
+    ];
+
+    for (const selector of iconSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const match = element.className.match(/icon-([a-z]+)/i) ||
+                      element.className.match(/sport-([a-z]+)/i) ||
+                      element.className.match(/activity-type-([a-z]+)/i);
+        if (match) {return match[1];}
+      }
+    }
+
+    // Try to detect from page content
+    const pageText = document.body.innerText.toLowerCase();
+    if (pageText.includes('virtual ride') || pageText.includes('zwift')) {return 'VirtualRide';}
+    if (pageText.includes('run') && !pageText.includes('running')) {return 'Run';}
+
+    return 'Ride';
   }
 
   // Save activity metadata
@@ -374,13 +453,63 @@
     return secs > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `${mins}m`;
   }
 
+  // Find injection point with multiple fallback selectors
+  function findInjectionPoint() {
+    const selectors = [
+      // Classic Strava selectors
+      '.section.more-stats',
+      '.spans8.activity-stats',
+      '.activity-summary',
+      // Modern Strava selectors (React-based)
+      '[data-testid="activity_stats"]',
+      '[class*="ActivityStats"]',
+      '[class*="activity-stats"]',
+      '.Activity--stats',
+      // Sidebar selectors
+      '.sidebar .section',
+      'aside .section',
+      '[class*="Sidebar"] section',
+      // Generic fallbacks
+      'section[class*="stats"]',
+      '.activity-detail-view section',
+      'main section:first-of-type'
+    ];
+
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        console.log('VAM Extension: Found injection point using selector:', selector);
+        return element;
+      }
+    }
+
+    // Last resort: try to find any section in the sidebar area
+    const sidebar = document.querySelector('aside, .sidebar, [class*="sidebar"], [class*="Sidebar"]');
+    if (sidebar) {
+      const section = sidebar.querySelector('section, .section, div');
+      if (section) {
+        console.log('VAM Extension: Found injection point in sidebar');
+        return section;
+      }
+    }
+
+    return null;
+  }
+
   // Create display widget
   async function displayVAMInfo() {
     if (document.getElementById('vam-pb-container')) {return;}
 
     const activityData = await getActivityData();
+
+    // Handle errors with user-visible messages
     if (!activityData) {
-      console.log('Could not fetch activity data');
+      console.log('VAM Extension: Not on an activity page or no data available');
+      return;
+    }
+
+    if (activityData.error) {
+      displayErrorWidget(activityData.message);
       return;
     }
 
@@ -396,11 +525,14 @@
     // Get leaderboard URL for links
     const leaderboardUrl = browserAPI.runtime.getURL('leaderboard.html');
 
-    const sidebarStats = document.querySelector('.section.more-stats') ||
-                           document.querySelector('.spans8.activity-stats') ||
-                           document.querySelector('.activity-summary');
+    const sidebarStats = findInjectionPoint();
 
-    if (!sidebarStats) {return;}
+    if (!sidebarStats) {
+      console.warn('VAM Extension: Could not find injection point on page');
+      // Try to create a floating widget as fallback
+      displayFloatingWidget(activityData, settings, currentResults, hasNewPB, newPBs, allPBs, leaderboardUrl);
+      return;
+    }
 
     const container = document.createElement('div');
     container.id = 'vam-pb-container';
@@ -531,11 +663,149 @@
     console.log('VAM Personal Bests displayed', { hasNewPB, currentResults, allPBs });
   }
 
+  // Display error widget when data can't be loaded
+  function displayErrorWidget(errorMessage) {
+    const injectionPoint = findInjectionPoint();
+    if (!injectionPoint) {return;}
+
+    if (document.getElementById('vam-pb-container')) {return;}
+
+    const container = document.createElement('div');
+    container.id = 'vam-pb-container';
+    container.className = 'vam-pb-widget vam-error-widget';
+
+    // Build the widget using DOM methods for safety
+    const header = document.createElement('div');
+    header.className = 'vam-pb-header';
+    const h3 = document.createElement('h3');
+    h3.textContent = '🏔️ VAM Personal Bests';
+    header.appendChild(h3);
+
+    const content = document.createElement('div');
+    content.className = 'vam-pb-content';
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'vam-error-message';
+
+    const icon = document.createElement('span');
+    icon.className = 'vam-error-icon';
+    icon.textContent = '⚠️';
+
+    const msgP = document.createElement('p');
+    msgP.textContent = errorMessage;
+
+    const retryBtn = document.createElement('button');
+    retryBtn.id = 'vam-retry-button';
+    retryBtn.className = 'vam-retry-btn';
+    retryBtn.textContent = '🔄 Retry';
+
+    errorDiv.appendChild(icon);
+    errorDiv.appendChild(msgP);
+    errorDiv.appendChild(retryBtn);
+    content.appendChild(errorDiv);
+
+    container.appendChild(header);
+    container.appendChild(content);
+
+    injectionPoint.parentNode.insertBefore(container, injectionPoint.nextSibling);
+
+    retryBtn.addEventListener('click', () => {
+      container.remove();
+      setTimeout(displayVAMInfo, 500);
+    });
+  }
+
+  // Display floating widget when no injection point found
+  function displayFloatingWidget(activityData, settings, currentResults, hasNewPB, newPBs, allPBs, leaderboardUrl) {
+    if (document.getElementById('vam-pb-container')) {return;}
+
+    const container = document.createElement('div');
+    container.id = 'vam-pb-container';
+    container.className = 'vam-pb-widget vam-floating-widget';
+
+    let html = `
+      <div class="vam-pb-header">
+        <h3>🏔️ VAM Personal Bests</h3>
+        ${hasNewPB ? '<span class="new-pb-badge">NEW PB!</span>' : ''}
+        <button id="vam-close-float" class="vam-close-btn">×</button>
+      </div>
+      <div class="vam-pb-content vam-compact">
+    `;
+
+    // Simplified display for floating widget
+    settings.trackingModes.forEach(mode => {
+      const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+      const configs = settings.customConfigs[mode] || [];
+      const topResult = configs
+        .map(c => currentResults[mode]?.[c.label])
+        .filter(r => r && r.vam > 0)
+        .sort((a, b) => b.vam - a.vam)[0];
+
+      if (topResult) {
+        const isNewPB = Boolean(Object.keys(newPBs[mode] || {}).length);
+        html += `
+          <div class="vam-float-item ${isNewPB ? 'new-pb-row' : ''}">
+            <span class="vam-float-label">${modeLabel}</span>
+            <span class="vam-float-value">${topResult.vam.toLocaleString()} m/h ${isNewPB ? '⭐' : ''}</span>
+          </div>
+        `;
+      }
+    });
+
+    html += `
+        <div class="vam-pb-footer">
+          <small><a href="${leaderboardUrl}" target="_blank">View All</a></small>
+        </div>
+      </div>
+    `;
+
+    // eslint-disable-next-line no-unsanitized/property
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    document.getElementById('vam-close-float')?.addEventListener('click', () => {
+      container.remove();
+    });
+
+    console.log('VAM Personal Bests displayed (floating)', { hasNewPB, currentResults });
+  }
+
+  // Observe page for dynamic content loading (SPA support)
+  function observePageChanges() {
+    let lastUrl = window.location.href;
+
+    const observer = new MutationObserver(() => {
+      if (window.location.href !== lastUrl) {
+        lastUrl = window.location.href;
+        // URL changed, try to display widget
+        const existingWidget = document.getElementById('vam-pb-container');
+        if (existingWidget) {
+          existingWidget.remove();
+        }
+        setTimeout(displayVAMInfo, 1500);
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
   function init() {
+    // Check if we're on an activity page
+    if (!window.location.pathname.includes('/activities/')) {
+      return;
+    }
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', displayVAMInfo);
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(displayVAMInfo, 1000);
+        observePageChanges();
+      });
     } else {
       setTimeout(displayVAMInfo, 1000);
+      observePageChanges();
     }
   }
 
