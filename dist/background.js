@@ -261,33 +261,82 @@ async function fetchAthleteActivities(maxActivities) {
   return activities.slice(0, maxActivities);
 }
 
-// Fetch activity stream data
-async function fetchActivityStreams(activityId) {
-  try {
-    const url = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
-    const response = await fetch(url, {
-      credentials: 'include'
-    });
+// Parse stream response in various formats
+function parseStreamResponse(data) {
+  if (!data) {return null;}
 
-    if (!response.ok) {return null;}
+  let altitudeData = null;
+  let timeData = null;
+  let distanceData = null;
 
-    const data = await response.json();
-
-    const altitudeData = data.altitude || data.find(s => s.type === 'altitude');
-    const timeData = data.time || data.find(s => s.type === 'time');
-    const distanceData = data.distance || data.find(s => s.type === 'distance');
-
-    if (!altitudeData || !timeData) {return null;}
-
-    return {
-      elevation: altitudeData.data || altitudeData,
-      time: timeData.data || timeData,
-      distance: distanceData ? (distanceData.data || distanceData) : null
-    };
-  } catch (error) {
-    console.error('Error fetching streams:', error);
-    return null;
+  // Format 1: Object with named properties { altitude: [...], time: [...], distance: [...] }
+  if (data.altitude && Array.isArray(data.altitude)) {
+    altitudeData = data.altitude;
+    timeData = data.time;
+    distanceData = data.distance;
   }
+  // Format 2: Object with data property { altitude: { data: [...] }, ... }
+  else if (data.altitude && data.altitude.data) {
+    altitudeData = data.altitude.data;
+    timeData = data.time?.data;
+    distanceData = data.distance?.data;
+  }
+  // Format 3: Array of stream objects [{ type: 'altitude', data: [...] }, ...]
+  else if (Array.isArray(data)) {
+    const altStream = data.find(s => s.type === 'altitude');
+    const timeStream = data.find(s => s.type === 'time');
+    const distStream = data.find(s => s.type === 'distance');
+    altitudeData = altStream?.data || altStream;
+    timeData = timeStream?.data || timeStream;
+    distanceData = distStream?.data || distStream;
+  }
+
+  if (altitudeData && timeData) {
+    return { elevation: altitudeData, time: timeData, distance: distanceData };
+  }
+  return null;
+}
+
+// Fetch activity stream data with multiple methods
+async function fetchActivityStreams(activityId) {
+  // Method 1: Try modern format with keys= parameter
+  try {
+    const url1 = `https://www.strava.com/activities/${activityId}/streams?keys=altitude,time,distance&key_by_type=true`;
+    console.log('Fetching streams (method 1):', activityId);
+    const response = await fetch(url1, { credentials: 'include' });
+
+    if (response.ok) {
+      const data = await response.json();
+      const result = parseStreamResponse(data);
+      if (result) {
+        console.log('Stream data fetched successfully (method 1)');
+        return result;
+      }
+    }
+  } catch (error) {
+    console.log('Method 1 failed:', error.message);
+  }
+
+  // Method 2: Try legacy format with stream_types[]
+  try {
+    const url2 = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
+    console.log('Fetching streams (method 2):', activityId);
+    const response = await fetch(url2, { credentials: 'include' });
+
+    if (response.ok) {
+      const data = await response.json();
+      const result = parseStreamResponse(data);
+      if (result) {
+        console.log('Stream data fetched successfully (method 2)');
+        return result;
+      }
+    }
+  } catch (error) {
+    console.log('Method 2 failed:', error.message);
+  }
+
+  console.error('All stream fetch methods failed for activity:', activityId);
+  return null;
 }
 
 // Load settings

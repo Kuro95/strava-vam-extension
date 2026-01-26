@@ -51,11 +51,146 @@
     ]
   };
 
+  // Helper: Extract data from response in various formats
+  function parseStreamResponse(data) {
+    if (!data) {return null;}
+
+    let altitudeData = null;
+    let timeData = null;
+    let distanceData = null;
+
+    // Format 1: Object with named properties { altitude: [...], time: [...], distance: [...] }
+    if (data.altitude && Array.isArray(data.altitude)) {
+      altitudeData = data.altitude;
+      timeData = data.time;
+      distanceData = data.distance;
+    }
+    // Format 2: Object with data property { altitude: { data: [...] }, ... }
+    else if (data.altitude && data.altitude.data) {
+      altitudeData = data.altitude.data;
+      timeData = data.time?.data;
+      distanceData = data.distance?.data;
+    }
+    // Format 3: Array of stream objects [{ type: 'altitude', data: [...] }, ...]
+    else if (Array.isArray(data)) {
+      const altStream = data.find(s => s.type === 'altitude');
+      const timeStream = data.find(s => s.type === 'time');
+      const distStream = data.find(s => s.type === 'distance');
+      altitudeData = altStream?.data || altStream;
+      timeData = timeStream?.data || timeStream;
+      distanceData = distStream?.data || distStream;
+    }
+
+    if (altitudeData && timeData) {
+      return { altitudeData, timeData, distanceData };
+    }
+    return null;
+  }
+
+  // Method 1: Fetch from internal Strava API (modern format with keys=)
+  async function fetchStreamsFromInternalAPI(activityId) {
+    try {
+      // Modern Strava internal API format uses keys= parameter
+      const streamUrl = `https://www.strava.com/activities/${activityId}/streams?keys=altitude,time,distance&key_by_type=true`;
+      console.log('VAM Extension: Fetching from', streamUrl);
+
+      const response = await fetch(streamUrl, { credentials: 'same-origin' });
+      if (!response.ok) {
+        console.log('VAM Extension: Internal API returned', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('VAM Extension: Internal API response type:', typeof data);
+      return parseStreamResponse(data);
+    } catch (e) {
+      console.log('VAM Extension: Internal API fetch failed:', e.message);
+      return null;
+    }
+  }
+
+  // Method 2: Extract streams data from embedded page data
+  async function extractStreamsFromPage(activityId) {
+    try {
+      // Check for pageView object (Strava's legacy frontend data)
+      if (typeof window.pageView !== 'undefined' && window.pageView.activity) {
+        const activity = window.pageView.activity();
+        if (activity && activity.streams) {
+          console.log('VAM Extension: Found data in pageView');
+          return parseStreamResponse(activity.streams);
+        }
+      }
+
+      // Check for __NEXT_DATA__ (if Strava migrated to Next.js)
+      const nextDataScript = document.getElementById('__NEXT_DATA__');
+      if (nextDataScript) {
+        const nextData = JSON.parse(nextDataScript.textContent);
+        if (nextData.props?.pageProps?.activity?.streams) {
+          console.log('VAM Extension: Found data in __NEXT_DATA__');
+          return parseStreamResponse(nextData.props.pageProps.activity.streams);
+        }
+      }
+
+      // Check for inline script data
+      const scripts = document.querySelectorAll('script:not([src])');
+      for (const script of scripts) {
+        const text = script.textContent;
+        if (text.includes('altitude') && text.includes('time') && text.includes(activityId)) {
+          // Try to extract JSON data
+          const jsonMatch = text.match(/\{[^{}]*"altitude"[^{}]*"time"[^{}]*\}/);
+          if (jsonMatch) {
+            try {
+              const data = JSON.parse(jsonMatch[0]);
+              const result = parseStreamResponse(data);
+              if (result) {
+                console.log('VAM Extension: Found data in inline script');
+                return result;
+              }
+            } catch (e) {
+              // Continue searching
+            }
+          }
+        }
+      }
+
+      return null;
+    } catch (e) {
+      console.log('VAM Extension: Page extraction failed:', e.message);
+      return null;
+    }
+  }
+
+  // Method 3: Legacy API format (stream_types[] array format)
+  async function fetchStreamsLegacy(activityId) {
+    try {
+      const streamUrl = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
+      console.log('VAM Extension: Trying legacy format', streamUrl);
+
+      const response = await fetch(streamUrl, { credentials: 'same-origin' });
+      if (!response.ok) {
+        console.log('VAM Extension: Legacy API returned', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('VAM Extension: Legacy API response type:', typeof data);
+      return parseStreamResponse(data);
+    } catch (e) {
+      console.log('VAM Extension: Legacy API fetch failed:', e.message);
+      return null;
+    }
+  }
+
   // Get activity data from Strava
   async function getActivityData() {
     try {
       const activityId = window.location.pathname.match(/\/activities\/(\d+)/)?.[1];
-      if (!activityId) {return null;}
+      if (!activityId) {
+        console.log('VAM Extension: No activity ID found in URL');
+        return null;
+      }
+
+      console.log('VAM Extension: Getting activity data for', activityId);
 
       // Check if we already have this activity stored
       let storedActivity = null;
@@ -69,7 +204,7 @@
 
       // If we have stored data, use it
       if (storedActivity && storedActivity.streams) {
-        console.log('Using stored activity data for', activityId);
+        console.log('VAM Extension: Using stored activity data for', activityId);
         return {
           activityId,
           elevation: storedActivity.streams.elevation,
@@ -79,19 +214,35 @@
         };
       }
 
-      // Otherwise, fetch from Strava
-      const streamUrl = `https://www.strava.com/activities/${activityId}/streams?stream_types[]=altitude&stream_types[]=time&stream_types[]=distance`;
+      // Try multiple methods to fetch activity data
+      let streamData = null;
 
-      const response = await fetch(streamUrl, { credentials: 'same-origin' });
-      if (!response.ok) {return null;}
+      // Method 1: Try the internal Strava streams endpoint (with keys format)
+      streamData = await fetchStreamsFromInternalAPI(activityId);
 
-      const data = await response.json();
+      // Method 2: Try extracting from page data if internal API fails
+      if (!streamData) {
+        console.log('VAM Extension: Trying to extract from page data...');
+        streamData = await extractStreamsFromPage(activityId);
+      }
 
-      const altitudeData = data.altitude || data.find(s => s.type === 'altitude');
-      const timeData = data.time || data.find(s => s.type === 'time');
-      const distanceData = data.distance || data.find(s => s.type === 'distance');
+      // Method 3: Try legacy format as fallback
+      if (!streamData) {
+        console.log('VAM Extension: Trying legacy API format...');
+        streamData = await fetchStreamsLegacy(activityId);
+      }
 
-      if (!altitudeData || !timeData) {return null;}
+      if (!streamData) {
+        console.log('VAM Extension: Could not fetch activity streams');
+        return null;
+      }
+
+      const { altitudeData, timeData, distanceData } = streamData;
+
+      if (!altitudeData || !timeData) {
+        console.log('VAM Extension: Missing required stream data (altitude or time)');
+        return null;
+      }
 
       // Extract activity metadata from the page
       const activityName = document.querySelector('.activity-name')?.textContent?.trim() ||
@@ -103,15 +254,21 @@
 
       const activityData = {
         activityId,
-        elevation: altitudeData.data || altitudeData,
-        time: timeData.data || timeData,
-        distance: distanceData ? (distanceData.data || distanceData) : null,
+        elevation: altitudeData,
+        time: timeData,
+        distance: distanceData || null,
         metadata: {
           name: activityName,
           sportType,
           date: new Date().toISOString()
         }
       };
+
+      console.log('VAM Extension: Activity data loaded successfully', {
+        elevationPoints: altitudeData.length,
+        timePoints: timeData.length,
+        distancePoints: distanceData ? distanceData.length : 0
+      });
 
       // Store the raw activity data for future reprocessing
       if (typeof ActivityStorage !== 'undefined') {
