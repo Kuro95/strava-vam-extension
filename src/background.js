@@ -1,11 +1,15 @@
 // Background Service Worker - Handles bulk syncing and messages
 // Firefox compatible version (Manifest V2)
+// Uses shared storage and VAM calculator modules
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
+// Import shared modules (they attach to global scope)
+// In Manifest V2, these are loaded via manifest.json background scripts array
+
 // Listen for messages
-browserAPI.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
+browserAPI.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'openOptions') {
     if (browserAPI.runtime.openOptionsPage) {
       browserAPI.runtime.openOptionsPage();
@@ -14,14 +18,46 @@ browserAPI.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
     }
   } else if (request.action === 'syncAllActivities') {
     syncAllActivities(request.maxActivities || 100);
+  } else if (request.action === 'reprocessAllActivities') {
+    reprocessAllActivities();
+  } else if (request.action === 'getStorageStats') {
+    ActivityStorage.getStorageStats().then(stats => {
+      sendResponse(stats);
+    });
+    return true; // Keep channel open for async response
+  } else if (request.action === 'exportActivities') {
+    ActivityStorage.exportActivities().then(data => {
+      sendResponse({ data });
+    });
+    return true;
+  } else if (request.action === 'clearAllData') {
+    clearAllData().then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
   }
   return true;
 });
+
+// Clear all stored data
+async function clearAllData() {
+  await ActivityStorage.clearAllActivities();
+  await new Promise(resolve => {
+    browserAPI.storage.local.clear(resolve);
+  });
+}
 
 // Sync all activities from Strava
 async function syncAllActivities(maxActivities = 100) {
   try {
     console.log('Starting bulk sync of activities...');
+
+    // Send initial status
+    browserAPI.runtime.sendMessage({
+      action: 'syncProgress',
+      status: 'fetching',
+      message: 'Fetching activity list from Strava...'
+    });
 
     // Get athlete's activities from Strava
     const activities = await fetchAthleteActivities(maxActivities);
@@ -30,13 +66,61 @@ async function syncAllActivities(maxActivities = 100) {
     // Process each activity
     let processed = 0;
     let newPBs = 0;
+    let stored = 0;
 
     for (const activity of activities) {
       try {
-        const result = await processActivity(activity);
-        if (result.hasNewPB) {
-          newPBs++;
+        // Check if we already have this activity stored
+        const existingActivity = await ActivityStorage.getActivity(String(activity.id));
+
+        let streamData;
+        if (existingActivity && existingActivity.streams) {
+          // Use cached stream data
+          streamData = existingActivity.streams;
+        } else {
+          // Fetch stream data from Strava
+          streamData = await fetchActivityStreams(activity.id);
+
+          if (streamData) {
+            // Store raw activity data
+            await ActivityStorage.saveActivity({
+              activityId: String(activity.id),
+              streams: streamData,
+              metadata: {
+                name: activity.name || 'Untitled Activity',
+                sportType: activity.type || 'Ride',
+                date: activity.start_date || new Date().toISOString(),
+                totalElevation: activity.elevation_gain,
+                totalDistance: activity.distance,
+                movingTime: activity.moving_time
+              }
+            });
+            stored++;
+          }
         }
+
+        if (streamData) {
+          // Load settings and process
+          const settings = await loadSettings();
+          const results = VAMCalculator.processActivity(streamData, settings);
+
+          // Cache computed results
+          const settingsHash = ActivityStorage.createSettingsHash(settings);
+          await ActivityStorage.saveComputedResults(String(activity.id), results, settingsHash);
+
+          // Update personal bests
+          const pbUpdate = await updatePersonalBests(String(activity.id), results);
+          if (pbUpdate.hasNewPB) {
+            newPBs++;
+            // Save activity metadata for leaderboard
+            await saveActivityMetadata(String(activity.id), {
+              name: activity.name || 'Untitled Activity',
+              sportType: activity.type || 'Ride',
+              date: activity.start_date || new Date().toISOString()
+            });
+          }
+        }
+
         processed++;
 
         // Send progress update
@@ -44,7 +128,8 @@ async function syncAllActivities(maxActivities = 100) {
           action: 'syncProgress',
           processed,
           total: activities.length,
-          newPBs
+          newPBs,
+          stored
         });
 
         // Small delay to avoid rate limiting
@@ -58,14 +143,79 @@ async function syncAllActivities(maxActivities = 100) {
     browserAPI.runtime.sendMessage({
       action: 'syncComplete',
       processed,
-      newPBs
+      newPBs,
+      stored
     });
 
-    console.log(`Sync complete: ${processed} activities processed, ${newPBs} new PBs`);
+    console.log(`Sync complete: ${processed} activities processed, ${stored} stored, ${newPBs} new PBs`);
   } catch (error) {
     console.error('Error during bulk sync:', error);
     browserAPI.runtime.sendMessage({
       action: 'syncError',
+      error: error.message
+    });
+  }
+}
+
+// Reprocess all stored activities with current settings
+async function reprocessAllActivities() {
+  try {
+    console.log('Starting reprocessing of all stored activities...');
+
+    const activities = await ActivityStorage.getAllActivities();
+    const settings = await loadSettings();
+    const settingsHash = ActivityStorage.createSettingsHash(settings);
+
+    let processed = 0;
+    let newPBs = 0;
+
+    // Clear existing PBs to recalculate from scratch
+    await new Promise(resolve => {
+      browserAPI.storage.local.remove(['vamPersonalBests'], resolve);
+    });
+
+    for (const activity of activities) {
+      try {
+        if (!activity.streams) {continue;}
+
+        // Recalculate VAM with current settings
+        const results = VAMCalculator.processActivity(activity.streams, settings);
+
+        // Cache new computed results
+        await ActivityStorage.saveComputedResults(activity.activityId, results, settingsHash);
+
+        // Update personal bests
+        const pbUpdate = await updatePersonalBests(activity.activityId, results);
+        if (pbUpdate.hasNewPB) {
+          newPBs++;
+        }
+
+        processed++;
+
+        // Send progress update
+        browserAPI.runtime.sendMessage({
+          action: 'reprocessProgress',
+          processed,
+          total: activities.length,
+          newPBs
+        });
+      } catch (error) {
+        console.error(`Error reprocessing activity ${activity.activityId}:`, error);
+      }
+    }
+
+    // Send completion message
+    browserAPI.runtime.sendMessage({
+      action: 'reprocessComplete',
+      processed,
+      newPBs
+    });
+
+    console.log(`Reprocessing complete: ${processed} activities, ${newPBs} PBs found`);
+  } catch (error) {
+    console.error('Error during reprocessing:', error);
+    browserAPI.runtime.sendMessage({
+      action: 'reprocessError',
       error: error.message
     });
   }
@@ -95,7 +245,7 @@ async function fetchAthleteActivities(maxActivities) {
 
       // Filter for cycling activities with elevation
       const cyclingActivities = data.models.filter(a =>
-        a.type === 'Ride' && a.elevation_gain > 50
+        (a.type === 'Ride' || a.type === 'VirtualRide') && a.elevation_gain > 50
       );
 
       activities.push(...cyclingActivities);
@@ -109,38 +259,6 @@ async function fetchAthleteActivities(maxActivities) {
   }
 
   return activities.slice(0, maxActivities);
-}
-
-// Process a single activity
-async function processActivity(activity) {
-  try {
-    // Fetch stream data
-    const streamData = await fetchActivityStreams(activity.id);
-    if (!streamData) {return { hasNewPB: false };}
-
-    // Load settings
-    const settings = await loadSettings();
-
-    // Calculate peaks for this activity
-    const results = calculatePeaks(streamData, settings);
-
-    // Update personal bests
-    const pbUpdate = await updatePersonalBests(activity.id, results);
-
-    // Save activity metadata for leaderboard
-    if (pbUpdate.hasNewPB) {
-      await saveActivityMetadata(activity.id, {
-        name: activity.name || 'Untitled Activity',
-        sportType: activity.type || 'Ride',
-        date: activity.start_date || new Date().toISOString()
-      });
-    }
-
-    return pbUpdate;
-  } catch (error) {
-    console.error(`Error processing activity ${activity.id}:`, error);
-    return { hasNewPB: false };
-  }
 }
 
 // Fetch activity stream data
@@ -172,245 +290,13 @@ async function fetchActivityStreams(activityId) {
   }
 }
 
-// Calculate VAM peaks (reusing logic from content script)
-function calculatePeaks(streamData, settings) {
-  const results = {};
-  const configs = settings.customConfigs;
-
-  // Time-based peaks
-  if (settings.trackingModes.includes('time')) {
-    results.time = {};
-    configs.time.forEach(config => {
-      results.time[config.label] = findBestVAMByTime(
-        streamData.elevation,
-        streamData.time,
-        config.value
-      );
-    });
-  }
-
-  // Ascent-based peaks
-  if (settings.trackingModes.includes('ascent')) {
-    results.ascent = {};
-    configs.ascent.forEach(config => {
-      results.ascent[config.label] = findBestVAMByAscent(
-        streamData.elevation,
-        streamData.time,
-        config.value
-      );
-    });
-  }
-
-  // Distance-based peaks
-  if (settings.trackingModes.includes('distance') && streamData.distance) {
-    results.distance = {};
-    configs.distance.forEach(config => {
-      results.distance[config.label] = findBestVAMByDistance(
-        streamData.elevation,
-        streamData.time,
-        streamData.distance,
-        config.value
-      );
-    });
-  }
-
-  return results;
-}
-
-// Helper functions (duplicated from content script)
-function calculateVAM(elevationGain, timeSeconds) {
-  if (timeSeconds === 0) {return 0;}
-  return (elevationGain / (timeSeconds / 3600));
-}
-
-// Calculate cumulative elevation gain for a segment (sum of positive changes)
-// This is the correct method for VAM - not just end - start elevation
-function calculateCumulativeElevationGain(elevationStream, startIdx, endIdx) {
-  let cumulativeGain = 0;
-  for (let k = startIdx + 1; k <= endIdx; k++) {
-    const diff = elevationStream[k] - elevationStream[k - 1];
-    if (diff > 0) {
-      cumulativeGain += diff;
-    }
-  }
-  return cumulativeGain;
-}
-
-// Apply simple moving average smoothing to elevation data
-// This reduces GPS noise without changing overall elevation profile
-function smoothElevationData(elevationStream, windowSize = 3) {
-  if (elevationStream.length < windowSize) {return elevationStream;}
-
-  const smoothed = [];
-  const halfWindow = Math.floor(windowSize / 2);
-
-  for (let i = 0; i < elevationStream.length; i++) {
-    let sum = 0;
-    let count = 0;
-
-    for (let j = Math.max(0, i - halfWindow); j <= Math.min(elevationStream.length - 1, i + halfWindow); j++) {
-      sum += elevationStream[j];
-      count++;
-    }
-
-    smoothed.push(sum / count);
-  }
-
-  return smoothed;
-}
-
-function findBestVAMByTime(elevationStream, timeStream, targetSeconds, tolerance = 0.1) {
-  let maxVAM = 0;
-  let bestEffort = null;
-
-  // Apply smoothing to reduce GPS noise
-  const smoothedElevation = smoothElevationData(elevationStream, 3);
-
-  // Minimum elevation gain threshold to avoid noise (5 meters for time-based)
-  const minElevationGain = 5;
-
-  for (let i = 0; i < smoothedElevation.length; i++) {
-    for (let j = i + 1; j < smoothedElevation.length; j++) {
-      const timeDiff = timeStream[j] - timeStream[i];
-
-      if (Math.abs(timeDiff - targetSeconds) <= targetSeconds * tolerance) {
-        // Use cumulative elevation gain (sum of positive changes)
-        const elevGain = calculateCumulativeElevationGain(smoothedElevation, i, j);
-
-        if (elevGain >= minElevationGain) {
-          const vam = calculateVAM(elevGain, timeDiff);
-
-          if (vam > maxVAM) {
-            maxVAM = vam;
-            bestEffort = {
-              vam: Math.round(vam),
-              elevationGain: Math.round(elevGain),
-              duration: Math.round(timeDiff)
-            };
-          }
-        }
-      }
-
-      if (timeDiff > targetSeconds * (1 + tolerance)) {break;}
-    }
-  }
-
-  return bestEffort || { vam: 0, elevationGain: 0, duration: targetSeconds };
-}
-
-function findBestVAMByAscent(elevationStream, timeStream, targetAscent, tolerance = 0.1) {
-  let maxVAM = 0;
-  let bestEffort = null;
-
-  // Apply smoothing to reduce GPS noise
-  const smoothedElevation = smoothElevationData(elevationStream, 3);
-
-  // For ascent-based, we want at least 90% of target to ensure meaningful segments
-  const minElevationGain = targetAscent * 0.9;
-
-  for (let i = 0; i < smoothedElevation.length; i++) {
-    for (let j = i + 1; j < smoothedElevation.length; j++) {
-      // Use cumulative elevation gain (sum of positive changes)
-      const elevGain = calculateCumulativeElevationGain(smoothedElevation, i, j);
-
-      if (Math.abs(elevGain - targetAscent) <= targetAscent * tolerance) {
-        const timeDiff = timeStream[j] - timeStream[i];
-
-        if (timeDiff > 0 && elevGain >= minElevationGain) {
-          const vam = calculateVAM(elevGain, timeDiff);
-
-          if (vam > maxVAM) {
-            maxVAM = vam;
-            bestEffort = {
-              vam: Math.round(vam),
-              elevationGain: Math.round(elevGain),
-              duration: Math.round(timeDiff)
-            };
-          }
-        }
-      }
-
-      if (elevGain > targetAscent * (1 + tolerance)) {break;}
-    }
-  }
-
-  return bestEffort || { vam: 0, elevationGain: 0, duration: 0 };
-}
-
-function findBestVAMByDistance(elevationStream, timeStream, distanceStream, targetDistance, tolerance = 0.1) {
-  if (!distanceStream) {return { vam: 0, elevationGain: 0, duration: 0 };}
-
-  let maxVAM = 0;
-  let bestEffort = null;
-
-  // Apply smoothing to reduce GPS noise
-  const smoothedElevation = smoothElevationData(elevationStream, 3);
-
-  // Minimum elevation gain threshold (5 meters for distance-based)
-  const minElevationGain = 5;
-
-  for (let i = 0; i < smoothedElevation.length; i++) {
-    for (let j = i + 1; j < smoothedElevation.length; j++) {
-      const distDiff = distanceStream[j] - distanceStream[i];
-
-      if (Math.abs(distDiff - targetDistance) <= targetDistance * tolerance) {
-        // Use cumulative elevation gain (sum of positive changes)
-        const elevGain = calculateCumulativeElevationGain(smoothedElevation, i, j);
-        const timeDiff = timeStream[j] - timeStream[i];
-
-        if (elevGain >= minElevationGain && timeDiff > 0) {
-          const vam = calculateVAM(elevGain, timeDiff);
-
-          if (vam > maxVAM) {
-            maxVAM = vam;
-            bestEffort = {
-              vam: Math.round(vam),
-              elevationGain: Math.round(elevGain),
-              duration: Math.round(timeDiff),
-              distance: Math.round(distDiff)
-            };
-          }
-        }
-      }
-
-      if (distDiff > targetDistance * (1 + tolerance)) {break;}
-    }
-  }
-
-  return bestEffort || { vam: 0, elevationGain: 0, duration: 0 };
-}
-
 // Load settings
 async function loadSettings() {
   return new Promise((resolve) => {
     browserAPI.storage.local.get(['vamSettings'], (result) => {
       const defaults = {
         trackingModes: ['time', 'ascent', 'distance'],
-        customConfigs: {
-          time: [
-            { value: 60, label: '1 min', unit: 's' },
-            { value: 120, label: '2 min', unit: 's' },
-            { value: 300, label: '5 min', unit: 's' },
-            { value: 600, label: '10 min', unit: 's' },
-            { value: 900, label: '15 min', unit: 's' },
-            { value: 1200, label: '20 min', unit: 's' },
-            { value: 1800, label: '30 min', unit: 's' },
-            { value: 3600, label: '60 min', unit: 's' }
-          ],
-          ascent: [
-            { value: 100, label: '100 m', unit: 'm' },
-            { value: 250, label: '250 m', unit: 'm' },
-            { value: 500, label: '500 m', unit: 'm' },
-            { value: 1000, label: '1000 m', unit: 'm' },
-            { value: 1500, label: '1500 m', unit: 'm' }
-          ],
-          distance: [
-            { value: 1000, label: '1 km', unit: 'm' },
-            { value: 2000, label: '2 km', unit: 'm' },
-            { value: 5000, label: '5 km', unit: 'm' },
-            { value: 10000, label: '10 km', unit: 'm' }
-          ]
-        }
+        customConfigs: VAMCalculator.DEFAULT_CONFIGS
       };
       resolve(result.vamSettings || defaults);
     });
@@ -472,4 +358,4 @@ async function saveActivityMetadata(activityId, metadata) {
   });
 }
 
-console.log('VAM PB Tracker background script loaded');
+console.log('VAM PB Tracker background script loaded (with IndexedDB storage)');

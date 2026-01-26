@@ -6,7 +6,7 @@
     <title>VAM Leaderboard</title>
     <style>
         body {
-            width: 700px;
+            width: 750px;
             min-height: 600px;
             margin: 0;
             padding: 16px;
@@ -28,6 +28,35 @@
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .view-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .view-tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #606060;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .view-tab:hover {
+            color: #fc4c02;
+        }
+
+        .view-tab.active {
+            color: #fc4c02;
+            border-bottom-color: #fc4c02;
         }
 
         .filters {
@@ -64,34 +93,6 @@
             border-color: #fc4c02;
         }
 
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .tab {
-            padding: 8px 16px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            color: #606060;
-            border-bottom: 2px solid transparent;
-            margin-bottom: -2px;
-        }
-
-        .tab:hover {
-            color: #fc4c02;
-        }
-
-        .tab.active {
-            color: #fc4c02;
-            border-bottom-color: #fc4c02;
-        }
-
         table {
             width: 100%;
             border-collapse: collapse;
@@ -117,7 +118,7 @@
         }
 
         th.sortable::after {
-            content: '↕';
+            content: '';
             position: absolute;
             right: 6px;
             color: #ccc;
@@ -125,12 +126,12 @@
         }
 
         th.sorted-asc::after {
-            content: '↑';
+            content: ' ↑';
             color: #fc4c02;
         }
 
         th.sorted-desc::after {
-            content: '↓';
+            content: ' ↓';
             color: #fc4c02;
         }
 
@@ -228,7 +229,7 @@
 
         .stats-summary {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 12px;
             margin-bottom: 20px;
         }
@@ -249,7 +250,7 @@
         }
 
         .stat-value {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: #242428;
         }
@@ -276,6 +277,7 @@
             display: flex;
             gap: 8px;
             margin-bottom: 16px;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -287,6 +289,7 @@
             font-weight: 600;
             text-decoration: none;
             display: inline-block;
+            transition: background 0.2s;
         }
 
         .btn-secondary {
@@ -297,14 +300,34 @@
         .btn-secondary:hover {
             background: #d0d0d0;
         }
+
+        .btn-primary {
+            background: #fc4c02;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #e04400;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
-    <h2>🏆 VAM Leaderboard</h2>
-    
+    <h2>VAM Leaderboard</h2>
+
     <div class="container">
         <div class="btn-group">
-            <a href="popup.html" class="btn btn-secondary">← Back to Personal Bests</a>
+            <a href="popup.html" class="btn btn-secondary">Back to Personal Bests</a>
+            <button id="reprocessBtn" class="btn btn-primary">Reprocess All</button>
+        </div>
+
+        <div class="view-tabs">
+            <button class="view-tab active" data-view="pbs">Personal Bests</button>
+            <button class="view-tab" data-view="activities">All Activities</button>
         </div>
 
         <div class="filters">
@@ -312,8 +335,8 @@
                 <label>Sport Type:</label>
                 <select id="sportFilter">
                     <option value="all">All Activities</option>
-                    <option value="Ride">🚴 Cycling Only</option>
-                    <option value="Run">🏃 Running Only</option>
+                    <option value="Ride">Cycling Only</option>
+                    <option value="Run">Running Only</option>
                     <option value="VirtualRide">Virtual Rides</option>
                 </select>
             </div>
@@ -321,9 +344,9 @@
             <div class="filter-group">
                 <label>Tracking Mode:</label>
                 <select id="modeFilter">
-                    <option value="time">⏱️ Time-Based</option>
-                    <option value="ascent">⛰️ Ascent-Based</option>
-                    <option value="distance">📏 Distance-Based</option>
+                    <option value="time">Time-Based</option>
+                    <option value="ascent">Ascent-Based</option>
+                    <option value="distance">Distance-Based</option>
                 </select>
             </div>
 
@@ -341,17 +364,19 @@
 
         <div id="content">
             <div class="no-data">
-                <div class="no-data-icon">📊</div>
+                <div class="no-data-icon">Loading...</div>
                 <p>Loading leaderboard data...</p>
             </div>
         </div>
     </div>
-    
+
     <div class="footer">
-        <a href="javascript:void(0)" id="settingsLink">⚙️ Settings</a> • 
-        Leaderboard shows your best VAM performances across all activities
+        <a href="javascript:void(0)" id="settingsLink">Settings</a> |
+        Compare your VAM performances across all activities
     </div>
 
+    <script src="storage.js"></script>
+    <script src="vam-calculator.js"></script>
     <script src="leaderboard.js"></script>
 </body>
 </html>

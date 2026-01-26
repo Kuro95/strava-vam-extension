@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-26
+
+### ✨ Added
+- **IndexedDB Activity Storage** - Store raw activity data locally for reprocessing
+  - Activities are stored with full stream data (elevation, time, distance)
+  - No storage limits (unlike browser.storage.local's 10MB limit)
+  - Enables offline analysis and future metric additions
+- **Full Activity Ranking** - New "All Activities" view in leaderboard
+  - Rank ALL stored activities by VAM (not just personal bests)
+  - Filter by sport type, tracking mode, and period
+  - See your complete performance history
+- **Reprocess Activities** - Recalculate VAM with new settings
+  - Change time windows, tolerances, or tracking modes
+  - All stored activities automatically recalculated
+  - No need to re-fetch from Strava
+- **Shared Module Architecture** - Cleaner, more maintainable code
+  - `storage.js` - IndexedDB wrapper for activity storage
+  - `vam-calculator.js` - Single source of truth for VAM calculations
+  - Eliminates code duplication between content and background scripts
+- **Activity Caching** - Skip Strava API calls for already-stored activities
+  - Faster sync when revisiting activities
+  - Reduces load on Strava servers
+
+### 🔧 Changed
+- Leaderboard now has two views: "Personal Bests" and "All Activities"
+- Sync process now stores raw data for future reprocessing
+- Version bumped to 1.1.0
+
+### 📚 Technical
+- Added `storage.js` for IndexedDB operations
+- Added `vam-calculator.js` for shared VAM calculations
+- Updated manifest.json to load shared modules
+- Updated content.js and background.js to use shared modules
+
 ## [1.0.10] - 2025-11-05
 
 ### 🔧 Fixed

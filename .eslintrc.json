@@ -36,7 +36,10 @@
   },
   "globals": {
     "browser": "readonly",
-    "chrome": "readonly"
+    "chrome": "readonly",
+    "ActivityStorage": "readonly",
+    "VAMCalculator": "readonly",
+    "module": "readonly"
   },
   "ignorePatterns": [
     "node_modules/",
