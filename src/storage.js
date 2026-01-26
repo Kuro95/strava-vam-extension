@@ -10,47 +10,76 @@
   const COMPUTED_STORE = 'computedResults';
 
   let db = null;
+  let dbInitPromise = null;
+
+  // Check if IndexedDB is available
+  function isIndexedDBAvailable() {
+    try {
+      return typeof indexedDB !== 'undefined' && indexedDB !== null;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Initialize IndexedDB
   async function initDB() {
-    if (db) {return db;}
+    if (db) { return db; }
+    if (dbInitPromise) { return dbInitPromise; }
 
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+    if (!isIndexedDBAvailable()) {
+      console.warn('IndexedDB not available in this context');
+      return null;
+    }
 
-      request.onerror = () => {
-        console.error('Failed to open IndexedDB:', request.error);
-        reject(request.error);
-      };
+    dbInitPromise = new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onsuccess = () => {
-        db = request.result;
-        resolve(db);
-      };
+        request.onerror = () => {
+          console.error('Failed to open IndexedDB:', request.error);
+          dbInitPromise = null;
+          reject(request.error);
+        };
 
-      request.onupgradeneeded = (event) => {
-        const database = event.target.result;
+        request.onsuccess = () => {
+          db = request.result;
+          resolve(db);
+        };
 
-        // Activities store - holds raw stream data
-        if (!database.objectStoreNames.contains(ACTIVITIES_STORE)) {
-          const activitiesStore = database.createObjectStore(ACTIVITIES_STORE, { keyPath: 'activityId' });
-          activitiesStore.createIndex('date', 'metadata.date', { unique: false });
-          activitiesStore.createIndex('sportType', 'metadata.sportType', { unique: false });
-          activitiesStore.createIndex('syncedAt', 'syncedAt', { unique: false });
-        }
+        request.onupgradeneeded = (event) => {
+          const database = event.target.result;
 
-        // Computed results store - cached VAM calculations
-        if (!database.objectStoreNames.contains(COMPUTED_STORE)) {
-          const computedStore = database.createObjectStore(COMPUTED_STORE, { keyPath: 'activityId' });
-          computedStore.createIndex('computedAt', 'computedAt', { unique: false });
-        }
-      };
+          // Activities store - holds raw stream data
+          if (!database.objectStoreNames.contains(ACTIVITIES_STORE)) {
+            const activitiesStore = database.createObjectStore(ACTIVITIES_STORE, { keyPath: 'activityId' });
+            activitiesStore.createIndex('date', 'metadata.date', { unique: false });
+            activitiesStore.createIndex('sportType', 'metadata.sportType', { unique: false });
+            activitiesStore.createIndex('syncedAt', 'syncedAt', { unique: false });
+          }
+
+          // Computed results store - cached VAM calculations
+          if (!database.objectStoreNames.contains(COMPUTED_STORE)) {
+            const computedStore = database.createObjectStore(COMPUTED_STORE, { keyPath: 'activityId' });
+            computedStore.createIndex('computedAt', 'computedAt', { unique: false });
+          }
+        };
+      } catch (error) {
+        console.error('Error initializing IndexedDB:', error);
+        dbInitPromise = null;
+        reject(error);
+      }
     });
+
+    return dbInitPromise;
   }
 
   // Save a single activity with raw stream data
   async function saveActivity(activityData) {
     const database = await initDB();
+    if (!database) {
+      console.warn('Database not available, cannot save activity');
+      return null;
+    }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE], 'readwrite');
@@ -81,6 +110,7 @@
   // Get a single activity by ID
   async function getActivity(activityId) {
     const database = await initDB();
+    if (!database) { return null; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE], 'readonly');
@@ -95,6 +125,7 @@
   // Get all activities
   async function getAllActivities() {
     const database = await initDB();
+    if (!database) { return []; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE], 'readonly');
@@ -109,6 +140,7 @@
   // Get activities by sport type
   async function getActivitiesBySport(sportType) {
     const database = await initDB();
+    if (!database) { return []; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE], 'readonly');
@@ -124,6 +156,7 @@
   // Get activity count
   async function getActivityCount() {
     const database = await initDB();
+    if (!database) { return 0; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE], 'readonly');
@@ -138,6 +171,7 @@
   // Delete a single activity
   async function deleteActivity(activityId) {
     const database = await initDB();
+    if (!database) { return false; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE, COMPUTED_STORE], 'readwrite');
@@ -154,6 +188,7 @@
   // Clear all activities
   async function clearAllActivities() {
     const database = await initDB();
+    if (!database) { return false; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([ACTIVITIES_STORE, COMPUTED_STORE], 'readwrite');
@@ -169,6 +204,7 @@
   // Save computed results for an activity
   async function saveComputedResults(activityId, results, settingsHash) {
     const database = await initDB();
+    if (!database) { return null; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([COMPUTED_STORE], 'readwrite');
@@ -191,6 +227,7 @@
   // Get computed results for an activity
   async function getComputedResults(activityId) {
     const database = await initDB();
+    if (!database) { return null; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([COMPUTED_STORE], 'readonly');
@@ -205,6 +242,7 @@
   // Get all computed results
   async function getAllComputedResults() {
     const database = await initDB();
+    if (!database) { return []; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([COMPUTED_STORE], 'readonly');
@@ -219,6 +257,7 @@
   // Clear all computed results (used when settings change)
   async function clearComputedResults() {
     const database = await initDB();
+    if (!database) { return false; }
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction([COMPUTED_STORE], 'readwrite');
