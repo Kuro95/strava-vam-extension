@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "Strava VAM Test",
+  "version": "1.0.0",
+  "description": "Test extension",
+  "browser_action": {
+    "default_title": "Test",
+    "default_popup": "popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "strava-vam-test@extension.com"
+    }
+  }
+}
